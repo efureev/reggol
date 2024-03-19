@@ -94,8 +94,8 @@ func (st AbstractTransformer) formatMessage(msg string) string {
 func (st AbstractTransformer) formatBlocks(blocks Blocks) string {
 	list := make([]string, len(blocks))
 
-	for _, block := range blocks {
-		list = append(list, block.Text)
+	for i, block := range blocks {
+		list[i] = block.Value()
 	}
 
 	return `blocks=[` + strings.Join(list, `, `) + `]`

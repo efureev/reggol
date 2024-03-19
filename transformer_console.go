@@ -49,8 +49,8 @@ func (ct ConsoleTransformer) formatMessage(msg string) string {
 
 func (ct ConsoleTransformer) formatBlocks(blocks Blocks) string {
 	list := make([]string, len(blocks))
-	for _, block := range blocks {
-		list = append(list, block.Value())
+	for i, block := range blocks {
+		list[i] = block.Value()
 	}
 
 	return strings.Join(list, ` `)
@@ -80,7 +80,7 @@ func (ct ConsoleTransformer) Transform(data EventData) []byte {
 	}
 
 	// level
-	if ct.displayLevel {
+	if ct.displayLevel && data.level != NoLevel {
 		list = append(list, ct.formatLevel(data.level))
 	}
 
