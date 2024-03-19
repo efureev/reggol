@@ -12,7 +12,11 @@ import (
 //nolint:gochecknoglobals
 var eventPool = &sync.Pool{
 	New: func() interface{} {
-		return &Event{}
+		return &Event{
+			data: EventData{
+				fields: make(Fields),
+			},
+		}
 	},
 }
 
@@ -36,7 +40,13 @@ func newEvent(w LevelWriter, level Level) *Event {
 	//nolint:forcetypeassert
 	e := eventPool.Get().(*Event)
 	e.w = w
-	e.data = newEventData(level)
+	e.data.ts = time.Now()
+	e.data.level = level
+	e.data.err = nil
+	e.data.blocks = nil
+
+	clear(e.data.fields)
+	// e.data = newEventData(level)
 
 	return e
 }
