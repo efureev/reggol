@@ -22,8 +22,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
-        with:
-          go-version: 'go.mod'
+      - run: 'go version'
+      - run: 'ls -la'
+      - run: 'pwd'
+#        with:
+#          go-version: 'go.mod'
       - uses: golangci/golangci-lint-action@v4 # Action page: <https://github.com/golangci/golangci-lint-action>
         with: { skip-pkg-cache: true, skip-build-cache: true }
 
