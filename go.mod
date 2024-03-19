@@ -1,6 +1,6 @@
 module github.com/efureev/reggol
 
-go 1.18
+go 1.21
 
 require gh.tarampamp.am/colors v1.2.1
 
