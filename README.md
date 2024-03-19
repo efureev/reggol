@@ -2,6 +2,8 @@
 
 Fork from [zerolog](https://github.com/rs/zerolog).
 
+[![Go Coverage](https://github.com/efureev/reggol/wiki/coverage.svg)](https://raw.githack.com/wiki/efureev/reggol/coverage.html)
+
 ## Install
 
 ## Features, cutting from original
