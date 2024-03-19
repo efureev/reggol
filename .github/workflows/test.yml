@@ -50,6 +50,9 @@ jobs:
         run: go test -race -bench=. -benchmem ./...
   coverage:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Update coverage report
         uses: ncruces/go-coverage-report@main

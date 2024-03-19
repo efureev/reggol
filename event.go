@@ -14,7 +14,7 @@ var eventPool = &sync.Pool{
 	New: func() interface{} {
 		return &Event{
 			data: EventData{
-				// fields: make(Fields),
+				fields: make(Fields),
 			},
 		}
 	},
@@ -44,8 +44,7 @@ func newEvent(w LevelWriter, level Level) *Event {
 	e.data.level = level
 	e.data.err = nil
 	e.data.blocks = nil
-	e.data.fields = make(Fields)
-	// clear(e.data.fields) // # > 1.20
+	clearMap(e.data.fields)
 	// e.data = newEventData(level)
 
 	return e
