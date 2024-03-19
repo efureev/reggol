@@ -24,6 +24,10 @@ Fork from [zerolog](https://github.com/rs/zerolog).
 go get -u github.com/efureev/reggol/log
 ```
 
+## Screens
+
+![Pretty Console Image](.assets%2Fconsole_screen_1.png)
+
 ## Getting Started
 
 ### Simple Logging Example
@@ -54,10 +58,10 @@ import "github.com/efureev/reggol"
 
 func main() {
 	trans := reggol.NewTextTransformer(``)
-	//trans.HideTimestamp()
-	//trans.HideLevel()
+	// trans.HideTimestamp()
+	// trans.HideLevel()
 
-	//writer := reggol.NewConsoleWriter().WithTransformer(trans)
+	// writer := reggol.NewConsoleWriter().WithTransformer(trans)
 	writer := reggol.NewConsoleWriter(func(w *reggol.ConsoleWriter) { w.Trans = trans })
 	logger := reggol.New(writer)
 
@@ -91,50 +95,51 @@ This example uses command-line flags to demonstrate various outputs depending on
 package main
 
 import (
-    "flag"
+	"flag"
 
-    "github.com/efureev/reggol"
-    "github.com/efureev/reggol/log"
+	"github.com/efureev/reggol"
+	"github.com/efureev/reggol/log"
 )
 
 func main() {
-    debug := flag.Bool("debug", false, "sets log level to debug")
+	debug := flag.Bool("debug", false, "sets log level to debug")
 
-    flag.Parse()
+	flag.Parse()
 
-    // Default level for this example is info, unless debug flag is present
+	// Default level for this example is info, unless debug flag is present
 	reggol.SetGlobalLevel(reggol.InfoLevel)
-    if *debug {
+	if *debug {
 		reggol.SetGlobalLevel(reggol.DebugLevel)
-    }
+	}
 
-    log.Debug().Msg("This message appears only when log level set to Debug")
-    log.Info().Msg("This message appears when log level set to Debug or Info")
+	log.Debug().Msg("This message appears only when log level set to Debug")
+	log.Info().Msg("This message appears when log level set to Debug or Info")
 
-    if e := log.Debug(); e.Enabled() {
-        // Compute log output only if enabled.
-        value := "bar"
-        e.Str("foo", value).Msg("some debug message")
-    }
+	if e := log.Debug(); e.Enabled() {
+		// Compute log output only if enabled.
+		value := "bar"
+		e.Str("foo", value).Msg("some debug message")
+	}
 }
 ```
 
 #### Logging without Level or Message
 
-You may choose to log without a specific level by using the `Log` method. You may also write without a message by setting an empty string in the `msg string` parameter of the `Msg` method. Both are demonstrated in the example below.
+You may choose to log without a specific level by using the `Log` method. You may also write without a message by
+setting an empty string in the `msg string` parameter of the `Msg` method. Both are demonstrated in the example below.
 
 ```go
 package main
 
 import (
-    "github.com/efureev/reggol"
-    "github.com/efureev/reggol/log"
+	"github.com/efureev/reggol"
+	"github.com/efureev/reggol/log"
 )
 
 func main() {
-    log.Log().
-        Str("foo", "bar").
-        Msg("")
+	log.Log().
+		Str("foo", "bar").
+		Msg("")
 }
 
 // Output: time=1494567715, foo=bar
@@ -166,4 +171,5 @@ func main() {
 
 Some settings can be changed and will be applied to all loggers:
 
-- `reggol.SetGlobalLevel`: : Can raise the minimum level of all loggers. Call this with `reggol.Disabled` to disable logging altogether (quiet mode).
+- `reggol.SetGlobalLevel`: : Can raise the minimum level of all loggers. Call this with `reggol.Disabled` to disable
+  logging altogether (quiet mode).
