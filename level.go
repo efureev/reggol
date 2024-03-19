@@ -32,17 +32,17 @@ var (
 		return l.String()
 	}
 
-	//(colors.FgYellow | colors.Bold))
+	// (colors.FgYellow | colors.Bold))
 	// LevelColors are used by ConsoleWriter's consoleDefaultFormatLevel to color
 	// log levels.
 	LevelColors = map[Level]colors.TextStyle{
 		TraceLevel: colors.FgBlue,
 		DebugLevel: 0,
 		InfoLevel:  colors.FgGreen,  // colorGreen,
-		WarnLevel:  colors.FgYellow, //colorYellow,
-		ErrorLevel: colors.FgRed,    //colorRed,
-		FatalLevel: colors.FgRed,    //colorRed,
-		PanicLevel: colors.FgRed,    //colorRed,
+		WarnLevel:  colors.FgYellow, // colorYellow,
+		ErrorLevel: colors.FgRed,    // colorRed,
+		FatalLevel: colors.FgRed,    // colorRed,
+		PanicLevel: colors.FgRed,    // colorRed,
 	}
 
 	// FormattedLevels are used by ConsoleWriter's consoleDefaultFormatLevel
@@ -103,6 +103,7 @@ func (l Level) String() string {
 	case NoLevel:
 		return ""
 	}
+
 	return strconv.Itoa(int(l))
 }
 
@@ -129,27 +130,34 @@ func ParseLevel(levelStr string) (Level, error) {
 	case strings.EqualFold(levelStr, LevelFieldMarshalFunc(NoLevel)):
 		return NoLevel, nil
 	}
+
 	i, err := strconv.Atoi(levelStr)
+
 	if err != nil {
 		return NoLevel, fmt.Errorf("Unknown Level String: '%s', defaulting to NoLevel", levelStr)
 	}
+
 	if i > 127 || i < -128 {
 		return NoLevel, fmt.Errorf("Out-Of-Bounds Level: '%d', defaulting to NoLevel", i)
 	}
+
 	return Level(i), nil
 }
 
-// UnmarshalText implements encoding.TextUnmarshaler to allow for easy reading from toml/yaml/json formats
+// UnmarshalText implements encoding.TextUnmarshaler to allow for easy reading from toml/yaml/json formats.
 func (l *Level) UnmarshalText(text []byte) error {
 	if l == nil {
 		return errors.New("can't unmarshal a nil *Level")
 	}
+
 	var err error
+
 	*l, err = ParseLevel(string(text))
+
 	return err
 }
 
-// MarshalText implements encoding.TextMarshaler to allow for easy writing into toml/yaml/json formats
+// MarshalText implements encoding.TextMarshaler to allow for easy writing into toml/yaml/json formats.
 func (l Level) MarshalText() ([]byte, error) {
 	return []byte(LevelFieldMarshalFunc(l)), nil
 }

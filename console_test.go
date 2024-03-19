@@ -9,7 +9,6 @@ func TestConsoleWriterTextTransformer(t *testing.T) {
 	t.Run(`Create Console Writer with Text Transformer`, func(t *testing.T) {
 		consoleWriter := NewConsoleWriter()
 
-		//e := newEvent(LevelWriterAdapter{consoleWriter}, WarnLevel).
 		e := newEvent(LevelWriterAdapter{consoleWriter}, WarnLevel).
 			Str(`key_1`, `val_1`).
 			Int(`key_3`, 32)

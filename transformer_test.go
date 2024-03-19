@@ -6,7 +6,6 @@ import (
 )
 
 func TestTextTransformer(t *testing.T) {
-
 	tests := []struct {
 		name   string
 		fields Fields
@@ -15,8 +14,6 @@ func TestTextTransformer(t *testing.T) {
 		{"one str field", Fields{`Key1`: `Value1`}, `Key1=Value1`},
 		{"several str fields1", Fields{`Key1`: `Value1`, `Key2`: `Value2`}, `Key1=Value1, Key2=Value2`},
 		{"several str fields2", Fields{`Key1`: `Value1`, `Key3`: `3221`}, `Key1=Value1, Key3=3221`},
-		//{"fields with level", Fields{{WarnLevel}, KeyField{`Key3`, `3221`}}, `level=warn, Key3=3221`},
-		//{"fields with error", Fields{ErrField{errors.New(`new error`)}}, `error=new error`},
 	}
 	eventData := newEventData(TraceLevel)
 
@@ -38,13 +35,13 @@ func TestTextTransformer(t *testing.T) {
 }
 
 func TestTextTransformerCreate(t *testing.T) {
-
 	t.Run(`create Transformer`, func(t *testing.T) {
 		tr := NewTextTransformer(``)
 
 		if !tr.displayLevel {
 			t.Errorf("`displayLevel` must be TRUE, given %s", `FALSE`)
 		}
+
 		if !tr.displayTimestamp {
 			t.Errorf("`displayTimestamp` must be TRUE, given %s", `FALSE`)
 		}
@@ -54,14 +51,17 @@ func TestTextTransformerCreate(t *testing.T) {
 		if !tr.displayLevel {
 			t.Errorf("`displayLevel` must be TRUE, given %s", `FALSE`)
 		}
+
 		if tr.displayTimestamp {
 			t.Errorf("`displayTimestamp` must be FALSE, given %s", `TRUE`)
 		}
+
 		tr.HideLevel()
 
 		if tr.displayLevel {
 			t.Errorf("`displayLevel` must be FALSE, given %s", `TRUE`)
 		}
+
 		if tr.displayTimestamp {
 			t.Errorf("`displayTimestamp` must be FALSE, given %s", `TRUE`)
 		}
@@ -69,7 +69,6 @@ func TestTextTransformerCreate(t *testing.T) {
 }
 
 func TestTextTransformerMessage(t *testing.T) {
-
 	t.Run(`Transform message`, func(t *testing.T) {
 		eventData := newEventData(WarnLevel)
 		eventData.message = `test message`
@@ -87,7 +86,6 @@ func TestTextTransformerMessage(t *testing.T) {
 }
 
 func TestTextTransformerError(t *testing.T) {
-
 	t.Run(`Transform err`, func(t *testing.T) {
 		eventData := newEventData(WarnLevel)
 		eventData.err = errors.New(`test error`)

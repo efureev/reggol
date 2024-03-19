@@ -14,6 +14,7 @@ func (b *Block) Value() string {
 	if b.Fn != nil {
 		return (b.Fn)(b.Text)
 	}
+
 	return b.Text
 }
 

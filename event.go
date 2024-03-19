@@ -9,6 +9,7 @@ import (
 	"time"
 )
 
+//nolint:gochecknoglobals
 var eventPool = &sync.Pool{
 	New: func() interface{} {
 		return &Event{}
@@ -28,10 +29,11 @@ type Event struct {
 	w      LevelWriter
 	data   EventData
 	doneFn func(msg string)
-	//ctx    context.Context // Optional Go context for event
+	// ctx    context.Context // Optional Go context for event
 }
 
 func newEvent(w LevelWriter, level Level) *Event {
+	//nolint:forcetypeassert
 	e := eventPool.Get().(*Event)
 	e.w = w
 	e.data = newEventData(level)
@@ -57,7 +59,9 @@ func (e *Event) write() (err error) {
 			_, err = e.w.WriteLevel(e.data)
 		}
 	}
+
 	putEvent(e)
+
 	return
 }
 
@@ -69,7 +73,9 @@ func (e *Event) Discard() *Event {
 	if e == nil {
 		return e
 	}
+
 	e.data.level = Disabled
+
 	return nil
 }
 
@@ -77,7 +83,9 @@ func (e *Event) Block(block Block) *Event {
 	if e == nil {
 		return e
 	}
+
 	e.data.blocks.AddBlock(block)
+
 	return e
 }
 
@@ -85,7 +93,9 @@ func (e *Event) BlockText(msg string) *Event {
 	if e == nil {
 		return e
 	}
+
 	e.data.blocks.Add(msg)
+
 	return e
 }
 
@@ -93,6 +103,7 @@ func (e *Event) Blocks(msgs ...string) *Event {
 	if e == nil {
 		return e
 	}
+
 	for _, msg := range msgs {
 		e.data.blocks.Add(msg)
 	}
@@ -104,6 +115,7 @@ func (e *Event) Msg(msg string) {
 	if e == nil {
 		return
 	}
+
 	e.msg(msg)
 }
 
@@ -111,6 +123,7 @@ func (e *Event) Msgf(format string, v ...interface{}) {
 	if e == nil {
 		return
 	}
+
 	e.msg(fmt.Sprintf(format, v...))
 }
 
@@ -138,6 +151,7 @@ func (e *Event) Push() {
 	e.msg("")
 }
 
+//nolint:wsl
 func putEvent(e *Event) {
 	// Proper usage of a sync.Pool requires each entry to have approximately
 	// the same memory cost. To obtain this property when the stored type
@@ -146,10 +160,11 @@ func putEvent(e *Event) {
 
 	// todo
 	// See https://golang.org/issue/23199
-	//const maxSize = 1 << 16 // 64KiB
-	//if cap(e.buf) > maxSize {
+	// const maxSize = 1 << 16 // 64KiB
+	// if cap(e.buf) > maxSize {
 	//	return
-	//}
+	// }
+
 	eventPool.Put(e)
 }
 
@@ -200,6 +215,7 @@ func (e *Event) AnErr(key string, err error) *Event {
 	if e == nil {
 		return e
 	}
+
 	switch m := ErrorMarshalFunc(err).(type) {
 	case nil:
 		return e
@@ -207,12 +223,14 @@ func (e *Event) AnErr(key string, err error) *Event {
 		if m == nil || isNilValue(m) {
 			return e
 		} else {
-			//todo
+			// todo
 			e.data.err = m
+
 			return e
 		}
 	case string:
 		e.data.err = errors.New(m)
+
 		return e
 	default:
 		return e.Interface(key, m)
@@ -223,6 +241,7 @@ func (e *Event) Interface(key string, i interface{}) *Event {
 	if e == nil {
 		return e
 	}
+
 	// todo interface to JSON
 	return e
 }

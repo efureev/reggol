@@ -8,8 +8,10 @@ import (
 )
 
 var (
+	//nolint:gochecknoglobals
 	consoleBufPool = sync.Pool{
 		New: func() interface{} {
+			//nolint:gomnd
 			return bytes.NewBuffer(make([]byte, 0, 100))
 		},
 	}
@@ -36,9 +38,9 @@ func NewConsoleWriter(options ...func(w *ConsoleWriter)) ConsoleWriter {
 	}
 
 	// Fix color on Windows
-	//if w.Out == os.Stdout || w.Out == os.Stderr {
+	// if w.Out == os.Stdout || w.Out == os.Stderr {
 	//	w.Out = colorable.NewColorable(w.Out.(*os.File))
-	//}
+	// }
 
 	return w
 }
@@ -54,7 +56,7 @@ func (w ConsoleWriter) WithTransformer(trans Transformer) ConsoleWriter {
 }
 
 func (w ConsoleWriter) Write(p []byte) (n int, err error) {
-
+	//nolint:forcetypeassert
 	var buf = consoleBufPool.Get().(*bytes.Buffer)
 	defer func() {
 		buf.Reset()
@@ -63,6 +65,7 @@ func (w ConsoleWriter) Write(p []byte) (n int, err error) {
 
 	buf.Write(p)
 	err = buf.WriteByte('\n')
+
 	if err != nil {
 		return n, err
 	}
@@ -76,5 +79,6 @@ func (w ConsoleWriter) Close() error {
 	if closer, ok := w.Out.(io.Closer); ok {
 		return closer.Close()
 	}
+
 	return nil
 }

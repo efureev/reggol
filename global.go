@@ -3,7 +3,8 @@ package reggol
 import "sync/atomic"
 
 var (
-	gLevel = new(int32)
+	ExitCode = 1
+	gLevel   = new(int32)
 )
 
 // SetGlobalLevel sets the global override for log level. If this
@@ -14,7 +15,7 @@ func SetGlobalLevel(l Level) {
 	atomic.StoreInt32(gLevel, int32(l))
 }
 
-// GlobalLevel returns the current global log level
+// GlobalLevel returns the current global log level.
 func GlobalLevel() Level {
 	return Level(atomic.LoadInt32(gLevel))
 }

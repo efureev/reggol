@@ -100,3 +100,14 @@ issues:
         - scopelint
         - gocognit
         - gochecknoglobals
+        - wsl
+
+    - path: level\.go
+      linters:
+        - gochecknoglobals
+    - path: global\.go
+      linters:
+        - gochecknoglobals
+    - path: default\.go
+      linters:
+        - gochecknoglobals

@@ -17,7 +17,7 @@ type Transformer interface {
 	Transform(data EventData) []byte
 }
 
-// AbstractTransformer is a abstract transformer for plain text
+// AbstractTransformer is a abstract transformer for plain text.
 type AbstractTransformer struct {
 	displayTimestamp bool
 	displayLevel     bool
@@ -59,7 +59,9 @@ func (st AbstractTransformer) formatLevel(lvl Level) string {
 	}
 
 	var l string
+
 	fl, ok := FormattedLevels[lvl]
+
 	if ok {
 		l = fl
 	} else {
@@ -90,7 +92,8 @@ func (st AbstractTransformer) formatMessage(msg string) string {
 }
 
 func (st AbstractTransformer) formatBlocks(blocks Blocks) string {
-	var list []string
+	list := make([]string, len(blocks))
+
 	for _, block := range blocks {
 		list = append(list, block.Text)
 	}

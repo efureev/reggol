@@ -9,7 +9,7 @@ import (
 	"gh.tarampamp.am/colors"
 )
 
-// ConsoleTransformer is a transformer for console text
+// ConsoleTransformer is a transformer for console text.
 type ConsoleTransformer struct {
 	AbstractTransformer
 	noColor bool
@@ -48,7 +48,7 @@ func (ct ConsoleTransformer) formatMessage(msg string) string {
 }
 
 func (ct ConsoleTransformer) formatBlocks(blocks Blocks) string {
-	var list []string
+	list := make([]string, len(blocks))
 	for _, block := range blocks {
 		list = append(list, block.Value())
 	}
@@ -67,11 +67,11 @@ func (ct ConsoleTransformer) formatError(err error) string {
 }
 
 func (ct ConsoleTransformer) Transform(data EventData) []byte {
-
 	if ct.AbstractTransformer.BeforeTransformFn != nil {
 		(ct.AbstractTransformer.BeforeTransformFn)(data)
 	}
 
+	//nolint:prealloc
 	var list []string
 
 	// timestamp
@@ -92,11 +92,9 @@ func (ct ConsoleTransformer) Transform(data EventData) []byte {
 	// Error
 	if data.err != nil {
 		list = append(list, ct.formatError(data.err))
-	} else {
+	} else if data.message != `` {
 		// Message
-		if data.message != `` {
-			list = append(list, ct.formatMessage(data.message))
-		}
+		list = append(list, ct.formatMessage(data.message))
 	}
 
 	// fields
@@ -113,8 +111,10 @@ func (ct ConsoleTransformer) Transform(data EventData) []byte {
 
 	b := bytes.Buffer{}
 	lastIdx := len(list) - 1
+
 	for i, item := range list {
 		b.WriteString(item)
+
 		if i != lastIdx {
 			b.WriteString(ct.fieldsDelimiter)
 		}

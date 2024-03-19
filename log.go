@@ -8,8 +8,8 @@ import (
 
 type Logger struct {
 	w LevelWriter
-	//context []byte
-	//ctx     context.Context
+	// context []byte
+	// ctx     context.Context
 	level Level
 }
 
@@ -17,7 +17,9 @@ func New(w io.Writer) Logger {
 	if w == nil {
 		w = io.Discard
 	}
+
 	lw, ok := w.(LevelWriter)
+
 	if !ok {
 		writer, ok := w.(TransformWriter)
 		if !ok {
@@ -38,6 +40,7 @@ func Nop() Logger {
 // Level creates a child logger with the minimum accepted level set to level.
 func (l Logger) Level(lvl Level) Logger {
 	l.level = lvl
+
 	return l
 }
 
@@ -52,6 +55,7 @@ func (l Logger) Write(p []byte) (n int, err error) {
 		// Trim CR added by stdlog.
 		p = p[0 : n-1]
 	}
+
 	l.Log().Msg(string(p))
 
 	return
@@ -63,18 +67,21 @@ func (l *Logger) newEvent(level Level, doneFn func(string)) *Event {
 		if doneFn != nil {
 			doneFn("")
 		}
+
 		return nil
 	}
+
 	e := newEvent(l.w, level)
 	e.doneFn = doneFn
-	//e.ctx = l.ctx
+	// e.ctx = l.ctx
 
-	//if l.context != nil && len(l.context) > 1 {
+	// if l.context != nil && len(l.context) > 1 {
 	//	e.buf = enc.AppendObjectData(e.buf, l.context)
-	//}
-	//if l.stack {
+	// }
+	// if l.stack {
 	//	e.Stack()
-	//}
+	// }
+
 	return e
 }
 
@@ -83,6 +90,7 @@ func (l *Logger) should(lvl Level) bool {
 	if l.w == nil {
 		return false
 	}
+
 	if lvl < l.level || lvl < GlobalLevel() {
 		return false
 	}
@@ -90,7 +98,7 @@ func (l *Logger) should(lvl Level) bool {
 	return true
 }
 
-////
+// //
 
 func (l *Logger) Log() *Event {
 	return l.newEvent(NoLevel, nil)
@@ -131,7 +139,8 @@ func (l *Logger) Fatal() *Event {
 			// will be lost as os.Exit() terminates the program immediately.
 			closer.Close()
 		}
-		os.Exit(1)
+
+		os.Exit(ExitCode)
 	})
 }
 

@@ -5,9 +5,7 @@ import (
 )
 
 func TestFields(t *testing.T) {
-
 	t.Run(`Add Fields`, func(t *testing.T) {
-
 		fields := make(Fields)
 
 		if l := len(fields); l > 0 {

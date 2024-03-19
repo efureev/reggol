@@ -8,6 +8,8 @@ import (
 )
 
 // Logger is the global logger.
+//
+//nolint:gochecknoglobals
 var Logger = reggol.New(os.Stderr)
 
 // Level creates a child logger with the minimum accepted level set to level.

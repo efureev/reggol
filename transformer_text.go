@@ -6,7 +6,7 @@ import (
 	"sort"
 )
 
-// TextTransformer is a simple transformer for plain text
+// TextTransformer is a simple transformer for plain text.
 type TextTransformer struct {
 	AbstractTransformer
 }
@@ -27,7 +27,9 @@ func (tt TextTransformer) formatLevel(lvl Level) string {
 }
 
 func (tt TextTransformer) Transform(data EventData) []byte {
+	//nolint:prealloc
 	var list []string
+
 	// timestamp
 	if tt.displayTimestamp {
 		list = append(list, fmt.Sprintf(`%s=%s`, tt.formatFieldName(TimestampFieldName), tt.formatTimestamp(data.ts)))
@@ -41,11 +43,9 @@ func (tt TextTransformer) Transform(data EventData) []byte {
 	// Error
 	if data.err != nil {
 		list = append(list, fmt.Sprintf(`%s=%s`, tt.formatFieldName(ErrorFieldName), tt.formatError(data.err)))
-	} else {
+	} else if data.message != `` {
 		// Message
-		if data.message != `` {
-			list = append(list, fmt.Sprintf(`%s=%s`, tt.formatFieldName(MessageFieldName), tt.formatMessage(data.message)))
-		}
+		list = append(list, fmt.Sprintf(`%s=%s`, tt.formatFieldName(MessageFieldName), tt.formatMessage(data.message)))
 	}
 
 	// fields
@@ -60,10 +60,13 @@ func (tt TextTransformer) Transform(data EventData) []byte {
 	for _, k := range keys {
 		list = append(list, fmt.Sprintf(`%s=%s`, tt.formatFieldName(k), tt.formatFieldValue(data.fields[k])))
 	}
+
 	b := bytes.Buffer{}
 	lastIdx := len(list) - 1
+
 	for i, item := range list {
 		b.WriteString(item)
+
 		if i != lastIdx {
 			b.WriteString(tt.fieldsDelimiter)
 		}

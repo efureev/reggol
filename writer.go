@@ -23,6 +23,7 @@ func (lw TransformWriterAdapter) Write(p []byte) (n int, err error) {
 	buf := bytes.Buffer{}
 	buf.Write(p)
 	err = buf.WriteByte('\n')
+
 	if err != nil {
 		return n, err
 	}
@@ -50,5 +51,6 @@ func (lw LevelWriterAdapter) Close() error {
 	if closer, ok := lw.TransformWriter.(io.Closer); ok {
 		return closer.Close()
 	}
+
 	return nil
 }
