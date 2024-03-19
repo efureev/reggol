@@ -51,8 +51,9 @@ jobs:
   coverage:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
+      pages: write
     steps:
       - name: Update coverage report
         uses: ncruces/go-coverage-report@main
