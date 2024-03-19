@@ -14,7 +14,7 @@ var eventPool = &sync.Pool{
 	New: func() interface{} {
 		return &Event{
 			data: EventData{
-				fields: make(Fields),
+				// fields: make(Fields),
 			},
 		}
 	},
