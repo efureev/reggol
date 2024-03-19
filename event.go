@@ -44,8 +44,8 @@ func newEvent(w LevelWriter, level Level) *Event {
 	e.data.level = level
 	e.data.err = nil
 	e.data.blocks = nil
-
-	clear(e.data.fields)
+	e.data.fields = make(Fields)
+	// clear(e.data.fields) // # > 1.20
 	// e.data = newEventData(level)
 
 	return e
