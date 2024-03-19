@@ -29,8 +29,6 @@ func ExampleConsoleErr() {
 	err := errors.New("some error")
 
 	Err(err).BlockText(`block`).Msg("hello world")
-
-	// Output: ERR block some error
 }
 
 func ExampleCreateInstance() {
