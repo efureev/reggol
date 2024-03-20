@@ -2,6 +2,7 @@ package reggol
 
 import (
 	"bytes"
+	"errors"
 	"testing"
 )
 
@@ -89,5 +90,52 @@ func TestLogNew(t *testing.T) {
 		if expected, given := "INF enabled=true key1=rer\n", buf.String(); expected != given {
 			t.Errorf("Expected: `%s`, given: `%s`", expected, given)
 		}
+	})
+
+	t.Run(`Console: Err`, func(t *testing.T) {
+		buf := &bytes.Buffer{}
+		logger := New(
+			NewConsoleWriter(
+				func(w *ConsoleWriter) { w.Out = buf },
+				func(w *ConsoleWriter) {
+					tr := NewConsoleTransformer(false, ``)
+					tr.HideTimestamp()
+					w.Trans = tr
+				},
+			),
+		)
+
+		err := errors.New(`test error`)
+		logger.Err(err).Push()
+		lvl := (ColorFgRed | ColorBold).Wrap(`ERR`)
+		errMsg := ColorFgRed.Wrap(`test error`)
+		if expected, given := lvl+" "+errMsg+"\n", buf.String(); expected != given {
+			t.Errorf("Expected: `%s`, given: `%s`", expected, given)
+		}
+
+		// buf.WriteTo(os.Stdout)
+	})
+
+	t.Run(`Console: Error`, func(t *testing.T) {
+		buf := &bytes.Buffer{}
+		logger := New(
+			NewConsoleWriter(
+				func(w *ConsoleWriter) { w.Out = buf },
+				func(w *ConsoleWriter) {
+					tr := NewConsoleTransformer(false, ``)
+					tr.HideTimestamp()
+					w.Trans = tr
+				},
+			),
+		)
+
+		logger.Error().Msg(`test message`)
+		lvl := (ColorFgRed | ColorBold).Wrap(`ERR`)
+
+		if expected, given := lvl+" test message\n", buf.String(); expected != given {
+			t.Errorf("Expected: `%s`, given: `%s`", expected, given)
+		}
+
+		// buf.WriteTo(os.Stdout)
 	})
 }
