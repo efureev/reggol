@@ -7,40 +7,40 @@ import (
 )
 
 const (
-	colorFgBlack   colors.TextStyle = 1 << iota // Black text color
-	colorFgRed                                  // Red text color
-	colorFgGreen                                // Green text color
-	colorFgYellow                               // Yellow text color
-	colorFgBlue                                 // Blue text color
-	colorFgMagenta                              // Magenta text color
-	colorFgCyan                                 // Cyan text color
-	colorFgWhite                                // White text color
-	colorFgDefault                              // Default text color
+	ColorFgBlack   colors.TextStyle = 1 << iota // Black text color
+	ColorFgRed                                  // Red text color
+	ColorFgGreen                                // Green text color
+	ColorFgYellow                               // Yellow text color
+	ColorFgBlue                                 // Blue text color
+	ColorFgMagenta                              // Magenta text color
+	ColorFgCyan                                 // Cyan text color
+	ColorFgWhite                                // White text color
+	ColorFgDefault                              // Default text color
 
-	colorFgBright // Bright text color, usage example: (FgRed | FgBright).Wrap("hello world")
+	ColorFgBright // Bright text color, usage example: (FgRed | FgBright).Wrap("hello world")
 
-	colorBgBlack   // Black background color
-	colorBgRed     // Red background color
-	colorBgGreen   // Green background color
-	colorBgYellow  // Yellow background color
-	colorBgBlue    // Blue background color
-	colorBgMagenta // Magenta background color
-	colorBgCyan    // Cyan background color
-	colorBgWhite   // White background color
-	colorBgDefault // Default background color
+	ColorBgBlack   // Black background color
+	ColorBgRed     // Red background color
+	ColorBgGreen   // Green background color
+	ColorBgYellow  // Yellow background color
+	ColorBgBlue    // Blue background color
+	ColorBgMagenta // Magenta background color
+	ColorBgCyan    // Cyan background color
+	ColorBgWhite   // White background color
+	ColorBgDefault // Default background color
 
-	colorBgBright // Bright background color, usage example: (BgRed | BgBright).Wrap("hello world")
+	ColorBgBright // Bright background color, usage example: (BgRed | BgBright).Wrap("hello world")
 
-	colorBold      // Bold text
-	colorFaint     // Faint text
-	colorItalic    // Italic text
-	colorUnderline // Underline text
-	colorBlinking  // Blinking text
-	colorReverse   // Reverse text
-	colorInvisible // Invisible text
-	colorStrike    // Strike text
+	ColorBold      // Bold text
+	ColorFaint     // Faint text
+	ColorItalic    // Italic text
+	ColorUnderline // Underline text
+	ColorBlinking  // Blinking text
+	ColorReverse   // Reverse text
+	ColorInvisible // Invisible text
+	ColorStrike    // Strike text
 
-	colorReset // Reset text style
+	ColorReset // Reset text style
 )
 
 func colorize(s interface{}, c colors.TextStyle, disabled bool) string {

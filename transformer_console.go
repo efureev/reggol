@@ -34,7 +34,7 @@ func (ct ConsoleTransformer) IsNoColor() bool {
 func (ct ConsoleTransformer) formatTimestamp(ts time.Time) string {
 	val := ct.AbstractTransformer.formatTimestamp(ts)
 
-	return colorize(val, colorFgBlack|colorFgBright, ct.noColor)
+	return colorize(val, ColorFgBlack|ColorFgBright, ct.noColor)
 }
 
 func (ct ConsoleTransformer) formatLevel(lvl Level) string {
