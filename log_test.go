@@ -3,8 +3,6 @@ package reggol
 import (
 	"bytes"
 	"testing"
-
-	"gh.tarampamp.am/colors"
 )
 
 func TestLogNew(t *testing.T) {
@@ -46,7 +44,7 @@ func TestLogNew(t *testing.T) {
 		//nolint:forcetypeassert
 		ts2 := logger.w.Transformer().(ConsoleTransformer).formatTimestamp(e2.data.ts)
 
-		lvl := colors.Bold.Wrap(`DBG`)
+		lvl := colorBold.Wrap(`DBG`)
 
 		if expected, given := ts1+" "+lvl+" key1=val1\n"+ts2+" "+lvl+" key2=val2\n", buf.String(); expected != given {
 			t.Errorf("Expected: `%s`, given: `%s`", expected, given)

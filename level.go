@@ -36,13 +36,13 @@ var (
 	// LevelColors are used by ConsoleWriter's consoleDefaultFormatLevel to color
 	// log levels.
 	LevelColors = map[Level]colors.TextStyle{
-		TraceLevel: colors.FgBlue,
+		TraceLevel: colorFgBlue,
 		DebugLevel: 0,
-		InfoLevel:  colors.FgGreen,  // colorGreen,
-		WarnLevel:  colors.FgYellow, // colorYellow,
-		ErrorLevel: colors.FgRed,    // colorRed,
-		FatalLevel: colors.FgRed,    // colorRed,
-		PanicLevel: colors.FgRed,    // colorRed,
+		InfoLevel:  colorFgGreen,  // colorGreen,
+		WarnLevel:  colorFgYellow, // colorYellow,
+		ErrorLevel: colorFgRed,    // colorRed,
+		FatalLevel: colorFgRed,    // colorRed,
+		PanicLevel: colorFgRed,    // colorRed,
 	}
 
 	// FormattedLevels are used by ConsoleWriter's consoleDefaultFormatLevel
