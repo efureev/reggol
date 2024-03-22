@@ -6,16 +6,18 @@ import (
 	"gh.tarampamp.am/colors"
 )
 
+type TextStyle = colors.TextStyle
+
 const (
-	ColorFgBlack   colors.TextStyle = 1 << iota // Black text color
-	ColorFgRed                                  // Red text color
-	ColorFgGreen                                // Green text color
-	ColorFgYellow                               // Yellow text color
-	ColorFgBlue                                 // Blue text color
-	ColorFgMagenta                              // Magenta text color
-	ColorFgCyan                                 // Cyan text color
-	ColorFgWhite                                // White text color
-	ColorFgDefault                              // Default text color
+	ColorFgBlack   TextStyle = 1 << iota // Black text color
+	ColorFgRed                           // Red text color
+	ColorFgGreen                         // Green text color
+	ColorFgYellow                        // Yellow text color
+	ColorFgBlue                          // Blue text color
+	ColorFgMagenta                       // Magenta text color
+	ColorFgCyan                          // Cyan text color
+	ColorFgWhite                         // White text color
+	ColorFgDefault                       // Default text color
 
 	ColorFgBright // Bright text color, usage example: (FgRed | FgBright).Wrap("hello world")
 
@@ -43,7 +45,7 @@ const (
 	ColorReset // Reset text style
 )
 
-func colorize(s interface{}, c colors.TextStyle, disabled bool) string {
+func colorize(s interface{}, c TextStyle, disabled bool) string {
 	if c == 0 {
 		disabled = true
 	}
@@ -57,6 +59,6 @@ func colorize(s interface{}, c colors.TextStyle, disabled bool) string {
 	return c.Wrap(str)
 }
 
-func SetColor(s interface{}, c colors.TextStyle, disabled bool) string {
+func SetColor(s interface{}, c TextStyle, disabled bool) string {
 	return colorize(s, c, disabled)
 }

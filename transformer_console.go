@@ -5,8 +5,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-
-	"gh.tarampamp.am/colors"
 )
 
 // ConsoleTransformer is a transformer for console text.
@@ -40,7 +38,7 @@ func (ct ConsoleTransformer) formatTimestamp(ts time.Time) string {
 func (ct ConsoleTransformer) formatLevel(lvl Level) string {
 	val := ct.AbstractTransformer.formatLevel(lvl)
 
-	return colorize(val, LevelColors[lvl]|colors.Bold, ct.noColor)
+	return colorize(val, LevelColors[lvl]|ColorBold, ct.noColor)
 }
 
 func (ct ConsoleTransformer) formatMessage(msg string) string {

@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-
-	"gh.tarampamp.am/colors"
 )
 
 // Level defines log levels.
@@ -32,10 +30,10 @@ var (
 		return l.String()
 	}
 
-	// (colors.FgYellow | colors.Bold))
+	// (ColorFgYellow | ColorBold))
 	// LevelColors are used by ConsoleWriter's consoleDefaultFormatLevel to color
 	// log levels.
-	LevelColors = map[Level]colors.TextStyle{
+	LevelColors = map[Level]TextStyle{
 		TraceLevel: ColorFgBlue,
 		DebugLevel: 0,
 		InfoLevel:  ColorFgGreen,  // colorGreen,
