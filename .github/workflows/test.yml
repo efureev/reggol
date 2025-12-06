@@ -25,7 +25,7 @@ jobs:
         with:
           go-version-file: 'go.mod'
       - uses: golangci/golangci-lint-action@v9 # Action page: <https://github.com/golangci/golangci-lint-action>
-        with: { version: v2.6 }
+        with: { version: v2.7 }
 
   test:
     strategy:
