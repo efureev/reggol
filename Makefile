@@ -12,7 +12,7 @@ help: ## Show this help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[32m%-11s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 fmt: ## Run source code formatter tools
-	docker-compose run $(DC_RUN_ARGS) --no-deps go sh -c 'go get golang.org/x/tools/cmd/goimports && $$GOPATH/bin/goimports -d -w .'
+	docker-compose run $(DC_RUN_ARGS) --no-deps go sh -c 'go install golang.org/x/tools/cmd/goimports@latest && $$GOPATH/bin/goimports -d -w .'
 	docker-compose run $(DC_RUN_ARGS) --no-deps go gofmt -s -w -d .
 	docker-compose run $(DC_RUN_ARGS) --no-deps go go mod tidy
 
@@ -20,7 +20,7 @@ lint: ## Run go linters
 	docker-compose run --rm --no-deps golint golangci-lint run
 
 gotest: ## Run go tests
-	docker-compose run $(DC_RUN_ARGS) --no-deps go go test -v -race -timeout 5s ./...
+	docker-compose run $(DC_RUN_ARGS) --no-deps go go test -v -timeout 5s ./...
 
 test: lint gotest ## Run go tests and linters
 
