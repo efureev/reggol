@@ -10,7 +10,7 @@ import (
 // Logger is the global logger.
 //
 //nolint:gochecknoglobals
-var Logger = reggol.New(os.Stderr)
+var Logger = reggol.New(reggol.NewConsoleWriter(func(w *reggol.ConsoleWriter) { w.Out = os.Stderr }))
 
 // Level creates a child logger with the minimum accepted level set to level.
 func Level(level reggol.Level) reggol.Logger {

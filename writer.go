@@ -22,8 +22,8 @@ func (lw TransformWriterAdapter) Transformer() Transformer {
 func (lw TransformWriterAdapter) Write(p []byte) (n int, err error) {
 	buf := bytes.Buffer{}
 	buf.Write(p)
-	err = buf.WriteByte('\n')
 
+	err = buf.WriteByte('\n')
 	if err != nil {
 		return n, err
 	}
@@ -46,7 +46,7 @@ func (lw LevelWriterAdapter) WriteLevel(data EventData) (n int, err error) {
 	return lw.Write(lw.Transformer().Transform(data))
 }
 
-// Call the underlying writer's Close method if it is an io.Closer. Otherwise does nothing.
+// Close Call the underlying writer's Close method if it is an io.Closer. Otherwise does nothing.
 func (lw LevelWriterAdapter) Close() error {
 	if closer, ok := lw.TransformWriter.(io.Closer); ok {
 		return closer.Close()

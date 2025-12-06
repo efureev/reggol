@@ -18,6 +18,7 @@ func NewTextTransformer(timeFormat string) TextTransformer {
 			fieldsDelimiter:  `, `,
 			displayTimestamp: true,
 			displayLevel:     true,
+			SortFields:       true,
 		},
 	}
 }
@@ -27,8 +28,23 @@ func (tt TextTransformer) formatLevel(lvl Level) string {
 }
 
 func (tt TextTransformer) Transform(data EventData) []byte {
-	//nolint:prealloc
-	var list []string
+	// preallocate approximate capacity
+	capHint := 0
+	if tt.displayTimestamp {
+		capHint++
+	}
+
+	if tt.displayLevel {
+		capHint++
+	}
+
+	if data.err != nil || data.message != `` {
+		capHint++
+	}
+
+	capHint += len(data.fields)
+
+	list := make([]string, 0, capHint)
 
 	// timestamp
 	if tt.displayTimestamp {
@@ -55,7 +71,9 @@ func (tt TextTransformer) Transform(data EventData) []byte {
 		keys = append(keys, k)
 	}
 
-	sort.Strings(keys)
+	if tt.SortFields {
+		sort.Strings(keys)
+	}
 
 	for _, k := range keys {
 		list = append(list, fmt.Sprintf(`%s=%s`, tt.formatFieldName(k), tt.formatFieldValue(data.fields[k])))

@@ -20,6 +20,7 @@ func NewConsoleTransformer(noColor bool, timeFormat string) ConsoleTransformer {
 			fieldsDelimiter:  ` `,
 			displayTimestamp: true,
 			displayLevel:     true,
+			SortFields:       true,
 		},
 		noColor: noColor,
 	}
@@ -69,47 +70,17 @@ func (ct ConsoleTransformer) Transform(data EventData) []byte {
 		(ct.AbstractTransformer.BeforeTransformFn)(data)
 	}
 
-	//nolint:prealloc
-	var list []string
+	list := make([]string, 0, ct.preallocCap(data))
 
-	// timestamp
-	if ct.displayTimestamp {
-		list = append(list, ct.formatTimestamp(data.ts))
-	}
-
-	// level
-	if ct.displayLevel && data.level != NoLevel {
-		list = append(list, ct.formatLevel(data.level))
-	}
-
-	// blocks
-	if data.blocks != nil || len(data.blocks) > 0 {
-		list = append(list, ct.formatBlocks(data.blocks))
-	}
-
-	// Error
-	if data.err != nil {
-		list = append(list, ct.formatError(data.err))
-	} else if data.message != `` {
-		// Message
-		list = append(list, ct.formatMessage(data.message))
-	}
-
-	// fields
-	keys := make([]string, 0, len(data.fields))
-	for k := range data.fields {
-		keys = append(keys, k)
-	}
-
-	sort.Strings(keys)
-
-	for _, k := range keys {
-		list = append(list, ct.formatField(k, data.fields[k]))
-	}
+	ct.appendTimestamp(&list, data)
+	ct.appendLevel(&list, data)
+	ct.appendBlocks(&list, data)
+	ct.appendMsgOrErr(&list, data)
+	ct.appendFields(&list, data)
 
 	b := bytes.Buffer{}
-	lastIdx := len(list) - 1
 
+	lastIdx := len(list) - 1
 	for i, item := range list {
 		b.WriteString(item)
 
@@ -123,4 +94,77 @@ func (ct ConsoleTransformer) Transform(data EventData) []byte {
 	}
 
 	return b.Bytes()
+}
+
+func (ct ConsoleTransformer) preallocCap(data EventData) int {
+	capHint := 0
+
+	if ct.displayTimestamp {
+		capHint++
+	}
+
+	if ct.displayLevel && data.level != NoLevel {
+		capHint++
+	}
+
+	if len(data.blocks) > 0 {
+		capHint++
+	}
+
+	if data.err != nil || data.message != `` {
+		capHint++
+	}
+
+	capHint += len(data.fields)
+
+	return capHint
+}
+
+func (ct ConsoleTransformer) appendTimestamp(list *[]string, data EventData) {
+	if ct.displayTimestamp {
+		*list = append(*list, ct.formatTimestamp(data.ts))
+	}
+}
+
+func (ct ConsoleTransformer) appendLevel(list *[]string, data EventData) {
+	if ct.displayLevel && data.level != NoLevel {
+		*list = append(*list, ct.formatLevel(data.level))
+	}
+}
+
+func (ct ConsoleTransformer) appendBlocks(list *[]string, data EventData) {
+	if len(data.blocks) > 0 {
+		*list = append(*list, ct.formatBlocks(data.blocks))
+	}
+}
+
+func (ct ConsoleTransformer) appendMsgOrErr(list *[]string, data EventData) {
+	if data.err != nil {
+		*list = append(*list, ct.formatError(data.err))
+
+		return
+	}
+
+	if data.message != `` {
+		*list = append(*list, ct.formatMessage(data.message))
+	}
+}
+
+func (ct ConsoleTransformer) appendFields(list *[]string, data EventData) {
+	if len(data.fields) == 0 {
+		return
+	}
+
+	keys := make([]string, 0, len(data.fields))
+	for k := range data.fields {
+		keys = append(keys, k)
+	}
+
+	if ct.SortFields {
+		sort.Strings(keys)
+	}
+
+	for _, k := range keys {
+		*list = append(*list, ct.formatField(k, data.fields[k]))
+	}
 }

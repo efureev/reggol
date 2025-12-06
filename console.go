@@ -11,11 +11,13 @@ var (
 	//nolint:gochecknoglobals
 	consoleBufPool = sync.Pool{
 		New: func() interface{} {
-			//nolint:gomnd
-			return bytes.NewBuffer(make([]byte, 0, 100))
+			return bytes.NewBuffer(make([]byte, 0, ConsoleBufInitCap))
 		},
 	}
 )
+
+// ConsoleBufInitCap is the initial capacity for console buffer allocations.
+const ConsoleBufInitCap = 100
 
 type ConsoleWriter struct {
 	// Out is the output destination.
@@ -55,17 +57,19 @@ func (w ConsoleWriter) WithTransformer(trans Transformer) ConsoleWriter {
 	return w
 }
 
+// Write implements io.Writer; compact formatting is intentional.
 func (w ConsoleWriter) Write(p []byte) (n int, err error) {
 	//nolint:forcetypeassert
 	var buf = consoleBufPool.Get().(*bytes.Buffer)
+
 	defer func() {
 		buf.Reset()
 		consoleBufPool.Put(buf)
 	}()
 
 	buf.Write(p)
-	err = buf.WriteByte('\n')
 
+	err = buf.WriteByte('\n')
 	if err != nil {
 		return n, err
 	}

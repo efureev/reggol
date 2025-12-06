@@ -166,14 +166,12 @@ func putEvent(e *Event) {
 	// the same memory cost. To obtain this property when the stored type
 	// contains a variably-sized buffer, we add a hard limit on the maximum buffer
 	// to place back in the pool.
-
 	// todo
 	// See https://golang.org/issue/23199
 	// const maxSize = 1 << 16 // 64KiB
 	// if cap(e.buf) > maxSize {
 	//	return
 	// }
-
 	eventPool.Put(e)
 }
 
@@ -225,11 +223,15 @@ func (e *Event) AnErr(key string, err error) *Event {
 		return e
 	}
 
+	if err == nil {
+		return e
+	}
+
 	switch m := ErrorMarshalFunc(err).(type) {
 	case nil:
 		return e
 	case error:
-		if m == nil || isNilValue(m) {
+		if m == nil {
 			return e
 		} else {
 			// todo
@@ -251,6 +253,5 @@ func (e *Event) Interface(key string, i interface{}) *Event {
 		return e
 	}
 
-	// todo interface to JSON
-	return e
+	return e.addField(key, i)
 }

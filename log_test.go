@@ -8,8 +8,9 @@ import (
 
 func TestLogNew(t *testing.T) {
 	t.Run(`New`, func(t *testing.T) {
+		SetGlobalLevel(DebugLevel)
 		buf := &bytes.Buffer{}
-		logger := New(buf)
+		logger := New(buf).Level(DebugLevel)
 
 		e1 := logger.Debug().Str(`key1`, `val1`)
 		e1.Push()
@@ -30,8 +31,9 @@ func TestLogNew(t *testing.T) {
 	})
 
 	t.Run(`New From Console`, func(t *testing.T) {
+		SetGlobalLevel(DebugLevel)
 		buf := &bytes.Buffer{}
-		logger := New(NewConsoleWriter(func(w *ConsoleWriter) { w.Out = buf }))
+		logger := New(NewConsoleWriter(func(w *ConsoleWriter) { w.Out = buf })).Level(DebugLevel)
 
 		e1 := logger.Debug().Str(`key1`, `val1`)
 		e1.Push()

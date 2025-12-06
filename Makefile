@@ -12,7 +12,7 @@ help: ## Show this help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[32m%-11s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 fmt: ## Run source code formatter tools
-	docker-compose run $(DC_RUN_ARGS) --no-deps go sh -c 'go install golang.org/x/tools/cmd/goimports@latest && $$GOPATH/bin/goimports -d -w .'
+	docker-compose run $(DC_RUN_ARGS) --no-deps go sh -c 'GO111MODULE=on GOBIN=$$GOPATH/bin go install golang.org/x/tools/cmd/goimports@latest && $$GOPATH/bin/goimports -d -w .'
 	docker-compose run $(DC_RUN_ARGS) --no-deps go gofmt -s -w -d .
 	docker-compose run $(DC_RUN_ARGS) --no-deps go go mod tidy
 

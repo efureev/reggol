@@ -10,6 +10,9 @@ func setup() {
 
 	// Logger = reggol.New(os.Stdout)
 	Logger = reggol.New(reggol.NewConsoleWriter().WithTransformer(trans))
+	Logger = Logger.Level(reggol.DebugLevel)
+	// Ensure debug logs visible in examples
+	reggol.SetGlobalLevel(reggol.DebugLevel)
 }
 
 func ExamplePrint() {

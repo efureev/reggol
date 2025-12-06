@@ -25,6 +25,10 @@ type AbstractTransformer struct {
 	fieldsDelimiter string
 	timeFormat      string
 
+	// SortFields controls whether field keys are sorted before formatting.
+	// Enabled by default for stable output; can be disabled for performance.
+	SortFields bool
+
 	FormatLevelFn      Formatter
 	FormatTimestampFn  Formatter
 	FormatFieldFn      Formatter
@@ -43,6 +47,14 @@ func (st *AbstractTransformer) HideLevel() {
 
 func (st *AbstractTransformer) HideTimestamp() {
 	st.displayTimestamp = false
+}
+
+func (st *AbstractTransformer) SetSortFields(v bool) {
+	st.SortFields = v
+}
+
+func (st *AbstractTransformer) DisableSort() {
+	st.SortFields = false
 }
 
 func (st AbstractTransformer) formatError(err error) string {

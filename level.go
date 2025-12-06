@@ -10,7 +10,7 @@ import (
 // Level defines log levels.
 type Level int8
 
-var (
+const (
 	// LevelTraceValue is the value used for the trace level field.
 	LevelTraceValue = "trace"
 	// LevelDebugValue is the value used for the debug level field.
@@ -25,36 +25,39 @@ var (
 	LevelFatalValue = "fatal"
 	// LevelPanicValue is the value used for the panic level field.
 	LevelPanicValue = "panic"
-
-	LevelFieldMarshalFunc = func(l Level) string {
-		return l.String()
-	}
-
-	// (ColorFgYellow | ColorBold))
-	// LevelColors are used by ConsoleWriter's consoleDefaultFormatLevel to color
-	// log levels.
-	LevelColors = map[Level]TextStyle{
-		TraceLevel: ColorFgBlue,
-		DebugLevel: 0,
-		InfoLevel:  ColorFgGreen,  // colorGreen,
-		WarnLevel:  ColorFgYellow, // colorYellow,
-		ErrorLevel: ColorFgRed,    // colorRed,
-		FatalLevel: ColorFgRed,    // colorRed,
-		PanicLevel: ColorFgRed,    // colorRed,
-	}
-
-	// FormattedLevels are used by ConsoleWriter's consoleDefaultFormatLevel
-	// for a short level name.
-	FormattedLevels = map[Level]string{
-		TraceLevel: "TRC",
-		DebugLevel: "DBG",
-		InfoLevel:  "INF",
-		WarnLevel:  "WRN",
-		ErrorLevel: "ERR",
-		FatalLevel: "FTL",
-		PanicLevel: "PNC",
-	}
 )
+
+//nolint:gochecknoglobals // customization hook
+var LevelFieldMarshalFunc = func(l Level) string { return l.String() }
+
+// (ColorFgYellow | ColorBold))
+// LevelColors are used by ConsoleWriter's consoleDefaultFormatLevel to color
+// log levels.
+//
+//nolint:gochecknoglobals // lookup table
+var LevelColors = map[Level]TextStyle{
+	TraceLevel: ColorFgBlue,
+	DebugLevel: 0,
+	InfoLevel:  ColorFgGreen,  // colorGreen,
+	WarnLevel:  ColorFgYellow, // colorYellow,
+	ErrorLevel: ColorFgRed,    // colorRed,
+	FatalLevel: ColorFgRed,    // colorRed,
+	PanicLevel: ColorFgRed,    // colorRed,
+}
+
+// FormattedLevels are used by ConsoleWriter's consoleDefaultFormatLevel
+// for a short level name.
+//
+//nolint:gochecknoglobals // lookup table
+var FormattedLevels = map[Level]string{
+	TraceLevel: "TRC",
+	DebugLevel: "DBG",
+	InfoLevel:  "INF",
+	WarnLevel:  "WRN",
+	ErrorLevel: "ERR",
+	FatalLevel: "FTL",
+	PanicLevel: "PNC",
+}
 
 const (
 	// DebugLevel defines debug log level.
@@ -130,7 +133,6 @@ func ParseLevel(levelStr string) (Level, error) {
 	}
 
 	i, err := strconv.Atoi(levelStr)
-
 	if err != nil {
 		return NoLevel, fmt.Errorf("Unknown Level String: '%s', defaulting to NoLevel", levelStr)
 	}

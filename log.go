@@ -29,7 +29,8 @@ func New(w io.Writer) Logger {
 		lw = LevelWriterAdapter{writer}
 	}
 
-	return Logger{w: lw, level: TraceLevel}
+	// Default logger level aligned with README: InfoLevel
+	return Logger{w: lw, level: InfoLevel}
 }
 
 // Nop returns a disabled logger for which all operation are no-op.
