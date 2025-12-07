@@ -5,6 +5,8 @@ Reggol is a lightweight, zerolog‑inspired logger with a clear architecture “
 Based on ideas from [zerolog](https://github.com/rs/zerolog), but simpler and with a different output format. It supports Blocks, customizable transformers, and a global facade `log/`.
 
 [![Go Coverage](https://github.com/efureev/reggol/wiki/coverage.svg)](https://raw.githack.com/wiki/efureev/reggol/coverage.html)
+[![Test](https://github.com/efureev/reggol/actions/workflows/test.yml/badge.svg)](https://github.com/efureev/reggol/actions/workflows/test.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/efureev/reggol)](https://goreportcard.com/report/github.com/efureev/reggol)
 
 Languages: English | [Русский](./Readme.ru.md)
 
