@@ -118,9 +118,23 @@ jobs:
       contents: write
       packages: write
     steps:
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+      - uses: actions/checkout@v6
+
+      # The profile is built here rather than by the action, which has no way to
+      # exclude anything: scripts/ holds build tooling with no tests, and letting
+      # it into the profile understated the library by about six points.
+      - name: Build the coverage profile
+        run: |
+          go test -covermode=atomic -coverprofile=cover.out \
+            $(go list ./... | grep -v '/scripts/')
+
       - name: Update coverage report
         uses: ncruces/go-coverage-report@main
         with:
+          coverage-file: cover.out
           report: 'true'
           chart: 'true'
           amend: 'true'

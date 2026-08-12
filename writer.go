@@ -13,10 +13,11 @@ type Writer interface {
 	WriteLevel(l Level, p []byte) (n int, err error)
 }
 
-// LevelWriter is implemented by writers that route by level.
+// LevelWriter is an alias for Writer, kept so that a signature can say which of
+// the two roles it means.
 //
-// Deprecated shape from v0 is gone; this alias exists so that the intent reads
-// clearly at call sites that accept either form.
+// Nothing in reggol uses it; it is retained only because removing an exported
+// name needs a major version.
 type LevelWriter = Writer
 
 // writerAdapter turns a plain io.Writer into a Writer.

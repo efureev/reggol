@@ -257,7 +257,6 @@ func indexFromRGB(r, g, b uint8) uint8 {
 // namedFromIndex reduces a palette index to a basic SGR color code.
 func namedFromIndex(index uint8, base int) int {
 	const (
-		basicCount  = 8
 		brightStart = 8
 		brightLimit = 16
 		cubeBase    = 16

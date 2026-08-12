@@ -46,8 +46,8 @@ golden: ## Regenerate the encoder golden files in testdata
 screenshot: ## Regenerate the console screenshot in .assets
 	go run ./scripts/gen-screenshot
 
-cover: ## Report test coverage
-	go test -covermode=atomic -coverprofile=cover.out ./...
+cover: ## Report test coverage (build tooling in scripts/ excluded, as in CI)
+	go test -covermode=atomic -coverprofile=cover.out $$(go list ./... | grep -v '/scripts/')
 	go tool cover -func=cover.out | tail -1
 
 check: fmt lint test bench-gate ## Full gate before committing
