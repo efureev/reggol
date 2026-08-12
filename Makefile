@@ -1,9 +1,13 @@
 #!/usr/bin/make
 
 SHELL = /bin/sh
+
+# Keep in step with .github/workflows/test.yml: a different patch release
+# analyses differently.
+GOLANGCI_VERSION = v2.7.2
 DC_RUN_ARGS = --rm --user "$(shell id -u):$(shell id -g)"
 
-.PHONY : help fmt lint test race alloc bench bench-gate fuzz cover check golden screenshot clean shell
+.PHONY : help fmt lint lint-install test race alloc bench bench-gate fuzz cover check golden screenshot clean shell
 .DEFAULT_GOAL : help
 .SILENT : lint test race alloc
 
@@ -21,11 +25,14 @@ fmt: ## Format the source
 lint: ## Run the linter, exactly as CI does
 	golangci-lint run
 
+lint-install: ## Install the exact linter version CI uses
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_VERSION)
+
 race: ## Run tests under the race detector, exactly as CI does
 	go test -race ./...
 
 alloc: ## Run the zero-allocation gates (must not run under -race)
-	go test -run 'TestZeroAllocations|TestChildLoggerZeroAllocations|TestPoolCeiling' -v ./...
+	go test -run 'ZeroAllocations|PoolCeiling' -v ./...
 
 test: race alloc ## Run every test CI runs
 

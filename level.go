@@ -104,13 +104,14 @@ func (l Level) Label() string {
 // Numeric strings are accepted so that levels below TraceLevel round-trip.
 // Errors wrap ErrUnknownLevel or ErrLevelOutOfRange.
 func ParseLevel(levelStr string) (Level, error) {
-	for i := range levelCount {
-		if levelNames[i] == "" {
+	for lvl := TraceLevel; lvl <= Disabled; lvl++ {
+		i, ok := levelIndex(lvl)
+		if !ok || levelNames[i] == "" {
 			continue
 		}
 
 		if strings.EqualFold(levelStr, levelNames[i]) {
-			return Level(i - levelOffset), nil
+			return lvl, nil
 		}
 	}
 

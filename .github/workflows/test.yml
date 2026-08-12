@@ -24,8 +24,11 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
+      # Pinned to an exact patch, not the v2.7 range: a patch bump swaps the
+      # bundled analyzers, and one silently turned on sixteen gosec findings
+      # that no local run reproduced.
       - uses: golangci/golangci-lint-action@v9 # Action page: <https://github.com/golangci/golangci-lint-action>
-        with: { version: v2.7 }
+        with: { version: v2.7.2 }
 
   # Correctness, including the concurrency guard. The race detector allocates on
   # its own, so allocation gates are excluded here and run in `alloc` instead.
@@ -37,10 +40,10 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
+      - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
         with:
           go-version: ${{ matrix.go-version }}
-      - uses: actions/checkout@v6
       - uses: actions/cache@v4
         with:
           path: ~/go/pkg/mod
@@ -56,22 +59,24 @@ jobs:
     name: Allocations
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
-      - uses: actions/checkout@v6
       - name: Zero-allocation gates
-        run: go test -run 'TestZeroAllocations|TestChildLoggerZeroAllocations|TestPoolCeiling' -v ./...
+        # Matches every gate by suffix rather than by name: a new
+        # Test*ZeroAllocations must not be able to slip past CI unnoticed.
+        run: go test -run 'ZeroAllocations|PoolCeiling' -v ./...
 
   # Seed corpora only; a real fuzzing campaign belongs in a scheduled job.
   fuzz:
     name: Fuzz (seeds)
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
-      - uses: actions/checkout@v6
       - name: Fuzz seeds
         run: go test -run 'Fuzz' ./...
       - name: Short fuzzing campaign
@@ -86,11 +91,11 @@ jobs:
     name: Benchmarks
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v6
+        with: { fetch-depth: 0 }
       - uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
-      - uses: actions/checkout@v6
-        with: { fetch-depth: 0 }
 
       - name: Allocation gate
         run: ./scripts/check-allocs.sh ./...
@@ -118,10 +123,10 @@ jobs:
       contents: write
       packages: write
     steps:
+      - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
-      - uses: actions/checkout@v6
 
       # The profile is built here rather than by the action, which has no way to
       # exclude anything: scripts/ holds build tooling with no tests, and letting

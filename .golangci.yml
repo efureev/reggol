@@ -132,6 +132,16 @@ linters:
       - linters:
           - nlreturn
         path: (caller_test|log/log_test)\.go
+      # value.go and colors_ext.go pack signed scalars and colors into unsigned
+      # words on purpose — that bit-reinterpretation is what makes a field cost
+      # no allocation. Every conversion there round-trips exactly, which
+      # TestValueRoundTrip and TestTimeValueIsLossless prove across the whole
+      # int64 range; G115 cannot see that and fires on all of them. It stays
+      # enabled everywhere else.
+      - linters:
+          - gosec
+        text: 'G115'
+        path: (value|colors_ext|fuzz_test)\.go
       # Build-time tooling, not library code: the numbers here are SVG
       # coordinates and sample data, and printing to stdout is the point.
       # Correctness linters (staticcheck, errcheck, govet) still apply.

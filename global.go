@@ -30,9 +30,16 @@ func init() {
 func SetGlobalLevel(l Level) { gLevel.Store(int32(l)) }
 
 // GlobalLevel returns the current global log level.
+//
+//nolint:gosec // the stored value only ever comes from SetGlobalLevel, so it fits
 func GlobalLevel() Level { return Level(gLevel.Load()) }
 
 // SetExitCode sets the process exit code used by Logger.Fatal.
+//
+// Values outside the int32 range are truncated, which costs nothing: the
+// operating system takes only the low eight bits of an exit status anyway.
+//
+//nolint:gosec // see above
 func SetExitCode(code int) { gExitCode.Store(int32(code)) }
 
 // ExitCode returns the process exit code used by Logger.Fatal.
