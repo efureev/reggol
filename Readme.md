@@ -267,6 +267,21 @@ For slog-compatible key names:
 reggol.NewJSONEncoder(reggol.WithKeyNames(slog.TimeKey, slog.LevelKey, slog.MessageKey))
 ```
 
+### Feeding an existing slog pipeline
+
+`FromHandler` is the reverse direction: reggol's chained API in front of a handler the
+application already owns.
+
+```go
+logger := slogr.FromHandler(existingHandler)
+logger.Info().Str("user", "alice").Msg("handled")
+```
+
+Records are handed over structurally, and the caller's context reaches `Handle`, so
+context-aware handlers keep working. Two level thresholds apply — reggol's process-wide
+`GlobalLevel` first, the handler's second — and this path allocates, because `slog.Record`
+copies attributes.
+
 ## Fatal and Panic
 
 - `logger.Fatal().Msg(…)` closes the writer to flush, then calls `os.Exit(ExitCode())`, default 1.

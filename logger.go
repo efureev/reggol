@@ -122,7 +122,7 @@ func (l Logger) newEvent(lvl Level, doneFn func(string)) *Event {
 
 	e := newEvent(l.w, l.enc, lvl)
 	e.doneFn = doneFn
-	e.data.ctx = l.ctx
+	e.data.prefix = l.ctx
 
 	if len(l.ctxFields) > 0 && l.ctx == nil {
 		e.data.fields = append(e.data.fields, l.ctxFields...)
@@ -203,7 +203,7 @@ func (l Logger) Ctx(ctx context.Context, lvl Level) *Event {
 		return nil
 	}
 
-	e.ctx = ctx
+	e.data.goCtx = ctx
 
 	for _, fn := range l.extractors {
 		fn(ctx, e)

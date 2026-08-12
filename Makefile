@@ -3,7 +3,7 @@
 SHELL = /bin/sh
 DC_RUN_ARGS = --rm --user "$(shell id -u):$(shell id -g)"
 
-.PHONY : help fmt lint test race alloc bench bench-gate fuzz cover check screenshot clean shell
+.PHONY : help fmt lint test race alloc bench bench-gate fuzz cover check golden screenshot clean shell
 .DEFAULT_GOAL : help
 .SILENT : lint test race alloc
 
@@ -39,6 +39,9 @@ fuzz: ## Run a short fuzzing campaign
 	for target in FuzzParseLevel FuzzJSONEncoder FuzzTextEncoder FuzzValueAppend; do \
 		go test -run '^$$' -fuzz="^$$target$$" -fuzztime=30s . || exit 1; \
 	done
+
+golden: ## Regenerate the encoder golden files in testdata
+	go test -run TestEncoderGolden -update .
 
 screenshot: ## Regenerate the console screenshot in .assets
 	go run ./scripts/gen-screenshot

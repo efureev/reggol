@@ -37,10 +37,11 @@ var eventPool = &sync.Pool{
 // outside the package to implement the encoder interface at all.
 type EventData struct {
 	ts      time.Time
+	goCtx   context.Context //nolint:containedctx // carried for context-aware encoders, never for cancellation
 	message []byte
 	fields  []Field
 	blocks  Blocks
-	ctx     []byte
+	prefix  []byte
 	level   Level
 }
 
@@ -73,7 +74,19 @@ func (d *EventData) Blocks() Blocks { return d.blocks }
 // The bytes are already in the encoder's own syntax and are spliced in ahead of
 // the event fields; this is what makes a child logger cost a memmove rather
 // than a re-encode per line.
-func (d *EventData) Prefix() []byte { return d.ctx }
+func (d *EventData) Prefix() []byte { return d.prefix }
+
+// Context returns the context attached to the event, or context.Background.
+//
+// Encoders that forward events to a context-aware sink — a slog.Handler, a
+// tracing exporter — need it; the built-in encoders ignore it.
+func (d *EventData) Context() context.Context {
+	if d.goCtx == nil {
+		return context.Background()
+	}
+
+	return d.goCtx
+}
 
 // Event is a single log record under construction.
 //
@@ -84,7 +97,6 @@ type Event struct {
 	enc    Encoder
 	buf    []byte
 	data   EventData
-	ctx    context.Context //nolint:containedctx // carried for context-aware hooks, never for cancellation
 	doneFn func(msg string)
 }
 
@@ -94,7 +106,6 @@ func newEvent(w Writer, enc Encoder, lvl Level) *Event {
 	e.w = w
 	e.enc = enc
 	e.doneFn = nil
-	e.ctx = nil
 	e.buf = e.buf[:0]
 
 	e.data.level = lvl
@@ -102,7 +113,8 @@ func newEvent(w Writer, enc Encoder, lvl Level) *Event {
 	e.data.message = e.data.message[:0]
 	e.data.fields = e.data.fields[:0]
 	e.data.blocks = e.data.blocks[:0]
-	e.data.ctx = nil
+	e.data.prefix = nil
+	e.data.goCtx = nil
 
 	return e
 }
@@ -116,8 +128,8 @@ func putEvent(e *Event) {
 
 	e.w = nil
 	e.enc = nil
-	e.ctx = nil
 	e.doneFn = nil
+	e.data.goCtx = nil
 
 	eventPool.Put(e)
 }
@@ -146,18 +158,18 @@ func (e *Event) Ctx(ctx context.Context) *Event {
 		return e
 	}
 
-	e.ctx = ctx
+	e.data.goCtx = ctx
 
 	return e
 }
 
 // GetCtx returns the context attached to the event, or context.Background.
 func (e *Event) GetCtx() context.Context {
-	if e == nil || e.ctx == nil {
+	if e == nil {
 		return context.Background()
 	}
 
-	return e.ctx
+	return e.data.Context()
 }
 
 // Timestamp overrides the event's time.

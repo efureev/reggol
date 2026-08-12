@@ -217,6 +217,11 @@ func BenchmarkSortDisabled(b *testing.B) {
 // BenchmarkStdlibSlogText is an external reference point, measured in the same
 // process so the numbers are directly comparable.
 func BenchmarkStdlibSlogText(b *testing.B) {
+	// Not slog.DiscardHandler: that one reports Enabled() == false and never
+	// formats anything, which is precisely the work this benchmark exists to
+	// measure. The bytes are discarded, the formatting is not.
+	//
+	//nolint:sloglint // see above
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	b.ReportAllocs()

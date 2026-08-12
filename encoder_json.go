@@ -70,9 +70,9 @@ func (j *JSONEncoder) AppendEvent(dst []byte, d *EventData) []byte {
 		dst = appendJSONBytes(dst, d.message)
 	}
 
-	if len(d.ctx) > 0 {
+	if len(d.prefix) > 0 {
 		dst = appendJSONSep(dst, &sep)
-		dst = append(dst, d.ctx...)
+		dst = append(dst, d.prefix...)
 	}
 
 	for _, f := range j.orderedFields(d) {

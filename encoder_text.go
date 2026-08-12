@@ -50,9 +50,9 @@ func (t *TextEncoder) AppendEvent(dst []byte, d *EventData) []byte {
 		dst = t.appendMessage(dst, d.message)
 	}
 
-	if len(d.ctx) > 0 {
+	if len(d.prefix) > 0 {
 		dst = appendTextSep(dst, &sep)
-		dst = append(dst, d.ctx...)
+		dst = append(dst, d.prefix...)
 	}
 
 	for _, f := range t.orderedFields(d) {

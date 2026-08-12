@@ -1,0 +1,25 @@
+empty                      | {"ts":"2026-08-12T13:45:30Z","level":"info"}
+message only               | {"ts":"2026-08-12T13:45:30Z","level":"info","message":"hello world"}
+no level                   | {"ts":"2026-08-12T13:45:30Z","message":"plain"}
+zero time                  | {"level":"info","message":"no timestamp"}
+one field                  | {"ts":"2026-08-12T13:45:30Z","level":"info","message":"m","k":"v"}
+three fields sorted        | {"ts":"2026-08-12T13:45:30Z","level":"info","message":"m","a":"x","m":true,"z":1}
+duplicate keys             | {"ts":"2026-08-12T13:45:30Z","level":"info","message":"m","k":"first","k":"second"}
+blocks                     | {"ts":"2026-08-12T13:45:30Z","level":"info","blocks":["API","GET /users"],"message":"ok"}
+decorated block            | {"ts":"2026-08-12T13:45:30Z","level":"info","blocks":["[auth]"],"message":"verified"}
+error with message         | {"ts":"2026-08-12T13:45:30Z","level":"error","message":"query failed","error":"connection refused","host":"db-1"}
+error under a custom key   | {"ts":"2026-08-12T13:45:30Z","level":"error","cause":"connection refused"}
+nil error                  | {"ts":"2026-08-12T13:45:30Z","level":"info","e":null}
+bound prefix               | {"ts":"2026-08-12T13:45:30Z","level":"info","message":"handled","service":"auth","shard":7,"req":"x1"}
+group                      | {"ts":"2026-08-12T13:45:30Z","level":"info","g":{"a":"1","b":2}}
+every scalar kind          | {"ts":"2026-08-12T13:45:30Z","level":"info","message":"kinds","bool":true,"dur":90000000000,"float":1.5,"int":-7,"str":"s","time":"2026-08-12T13:45:30.123456789Z","uint":42}
+escaping                   | {"ts":"2026-08-12T13:45:30Z","level":"info","message":"quote\" backslash\\ tab\t","ctrl":"\u0000\u001f","nl":"a\nb"}
+unicode                    | {"ts":"2026-08-12T13:45:30Z","level":"info","message":"emoji 🙂 combining é","ключ":"значение"}
+long message               | {"ts":"2026-08-12T13:45:30Z","level":"info","message":"long long long long long long long long long long long long "}
+level trace                | {"ts":"2026-08-12T13:45:30Z","level":"trace","message":"leveled","n":1}
+level debug                | {"ts":"2026-08-12T13:45:30Z","level":"debug","message":"leveled","n":1}
+level info                 | {"ts":"2026-08-12T13:45:30Z","level":"info","message":"leveled","n":1}
+level warn                 | {"ts":"2026-08-12T13:45:30Z","level":"warn","message":"leveled","n":1}
+level error                | {"ts":"2026-08-12T13:45:30Z","level":"error","message":"leveled","n":1}
+level fatal                | {"ts":"2026-08-12T13:45:30Z","level":"fatal","message":"leveled","n":1}
+level panic                | {"ts":"2026-08-12T13:45:30Z","level":"panic","message":"leveled","n":1}

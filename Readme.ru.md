@@ -264,6 +264,21 @@ logger.Info("handled", slog.String("user", "alice"))
 reggol.NewJSONEncoder(reggol.WithKeyNames(slog.TimeKey, slog.LevelKey, slog.MessageKey))
 ```
 
+### Отправка в готовый slog-пайплайн
+
+`FromHandler` — обратное направление: цепочечный API reggol поверх хендлера, которым уже
+владеет приложение.
+
+```go
+logger := slogr.FromHandler(existingHandler)
+logger.Info().Str("user", "alice").Msg("handled")
+```
+
+Записи передаются структурно, и контекст вызывающей стороны доходит до `Handle`, поэтому
+контекстно-зависимые хендлеры продолжают работать. Порогов уровня два — сначала
+процессный `GlobalLevel` reggol, затем хендлера, — и этот путь аллоцирует, потому что
+`slog.Record` копирует атрибуты.
+
 ## Поведение Fatal и Panic
 
 - `logger.Fatal().Msg(…)` закрывает writer для сброса буферов, затем вызывает

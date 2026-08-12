@@ -144,9 +144,9 @@ func (c *ConsoleEncoder) AppendEvent(dst []byte, d *EventData) []byte {
 		dst = c.appendMessage(dst, d.message)
 	}
 
-	if len(d.ctx) > 0 {
+	if len(d.prefix) > 0 {
 		dst = appendSpace(dst, &sep)
-		dst = append(dst, d.ctx...)
+		dst = append(dst, d.prefix...)
 	}
 
 	for _, f := range c.orderedFields(d) {
