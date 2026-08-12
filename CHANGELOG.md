@@ -13,7 +13,8 @@ A complete rewrite of the core. **There is no API in common with the 0.x line an
 you need the old interface. The rewrite exists to make the library deliver what its README always claimed — near-zero
 allocation logging — and to fix a data race that made concurrent logging unsafe.
 
-Background on what was wrong and why this was not a refactor: [AUDIT.md](./AUDIT.md).
+The *Fixed* section below is the full list of what was wrong with 0.4.1; the *Performance*
+table is why a refactor could not have delivered it.
 
 ### Performance
 
@@ -155,8 +156,7 @@ Everything in this section is breaking.
 - Both READMEs rewritten for the new API and kept section-for-section identical.
 - Every README snippet is a runnable example in `example_test.go` whose output is asserted — the check whose absence
   produced the non-compiling quick start.
-- `AUDIT.md` records the state of 0.4.1 and the reasoning behind the rewrite;
-  `UPGRADE.md` tracks what remains before the tag.
+- `UPGRADE.md` tracks what remains before the tag and the directions worth exploring after it.
 
 ## [0.4.1] — 2025-12-07
 
