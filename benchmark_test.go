@@ -110,6 +110,20 @@ func BenchmarkMsgf(b *testing.B) {
 	})
 }
 
+// BenchmarkInfoWithCaller sits next to BenchmarkInfo so the price of recording
+// the call site is visible rather than folklore.
+func BenchmarkInfoWithCaller(b *testing.B) {
+	logger := New(io.Discard, WithEncoder(NewTextEncoder()), WithLevel(TraceLevel), WithCaller())
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			logger.Info().Msg(fakeMessage)
+		}
+	})
+}
+
 func BenchmarkErrField(b *testing.B) {
 	logger := textLogger()
 

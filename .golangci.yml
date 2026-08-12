@@ -126,6 +126,12 @@ linters:
           - gocyclo
           - gocognit
         path: value\.go
+      # The caller matrix puts the logging call and the expected position on one
+      # line on purpose: that is what makes their line numbers identical, and it
+      # is the only way to assert an exact call site without hard-coding numbers.
+      - linters:
+          - nlreturn
+        path: (caller_test|log/log_test)\.go
       # Build-time tooling, not library code: the numbers here are SVG
       # coordinates and sample data, and printing to stdout is the point.
       # Correctness linters (staticcheck, errcheck, govet) still apply.

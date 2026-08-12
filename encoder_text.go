@@ -38,6 +38,13 @@ func (t *TextEncoder) AppendEvent(dst []byte, d *EventData) []byte {
 		dst = t.appendLevel(dst, d.level)
 	}
 
+	if hasCaller(d) {
+		dst = appendTextSep(dst, &sep)
+		dst = append(dst, CallerFieldName...)
+		dst = append(dst, '=')
+		dst = t.appendCaller(dst, d)
+	}
+
 	if len(d.blocks) > 0 {
 		dst = appendTextSep(dst, &sep)
 		dst = t.appendBlocks(dst, d.blocks)

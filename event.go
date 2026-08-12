@@ -42,6 +42,7 @@ type EventData struct {
 	fields  []Field
 	blocks  Blocks
 	prefix  []byte
+	pc      uintptr
 	level   Level
 }
 
@@ -75,6 +76,29 @@ func (d *EventData) Blocks() Blocks { return d.blocks }
 // the event fields; this is what makes a child logger cost a memmove rather
 // than a re-encode per line.
 func (d *EventData) Prefix() []byte { return d.prefix }
+
+// PC returns the program counter of the call site, or 0 when the caller was not
+// captured.
+//
+// Bridges to other logging systems want this rather than the resolved position:
+// log/slog carries a PC in its Record and resolves it in the handler.
+func (d *EventData) PC() uintptr { return d.pc }
+
+// Caller returns the source position of the call site.
+//
+// ok is false when the caller was not captured — the default — or when the
+// program counter cannot be resolved. The file is the full path; encoders
+// shorten it for display.
+func (d *EventData) Caller() (file string, line int, ok bool) {
+	return resolvePC(d.pc)
+}
+
+// CallerFunction returns the fully qualified name of the function that started
+// the event, or an empty string.
+//
+// Built-in encoders do not render it — file and line already identify the site —
+// but it costs nothing to resolve, and a formatting hook may want it.
+func (d *EventData) CallerFunction() string { return funcForPC(d.pc) }
 
 // Context returns the context attached to the event, or context.Background.
 //
@@ -115,6 +139,7 @@ func newEvent(w Writer, enc Encoder, lvl Level) *Event {
 	e.data.blocks = e.data.blocks[:0]
 	e.data.prefix = nil
 	e.data.goCtx = nil
+	e.data.pc = 0
 
 	return e
 }
@@ -170,6 +195,36 @@ func (e *Event) GetCtx() context.Context {
 	}
 
 	return e.data.Context()
+}
+
+// Caller records this line as the call site.
+//
+// Use it for one-off events when the logger itself was built without
+// WithCaller; the position is taken from where Caller is called, so keep it on
+// the same line as the rest of the chain.
+func (e *Event) Caller() *Event {
+	if e == nil {
+		return e
+	}
+
+	e.data.pc = capturePC(callerSkipDirect)
+
+	return e
+}
+
+// CallerPC records an explicit program counter as the call site.
+//
+// This exists for bridges: log/slog captures its own PC, and a handler built on
+// reggol must use that one rather than a position inside the bridge. Passing 0
+// clears the caller.
+func (e *Event) CallerPC(pc uintptr) *Event {
+	if e == nil {
+		return e
+	}
+
+	e.data.pc = pc
+
+	return e
 }
 
 // Timestamp overrides the event's time.

@@ -16,6 +16,8 @@ every scalar kind          | {"ts":"2026-08-12T13:45:30Z","level":"info","messag
 escaping                   | {"ts":"2026-08-12T13:45:30Z","level":"info","message":"quote\" backslash\\ tab\t","ctrl":"\u0000\u001f","nl":"a\nb"}
 unicode                    | {"ts":"2026-08-12T13:45:30Z","level":"info","message":"emoji 🙂 combining é","ключ":"значение"}
 long message               | {"ts":"2026-08-12T13:45:30Z","level":"info","message":"long long long long long long long long long long long long "}
+caller                     | {"ts":"2026-08-12T13:45:30Z","level":"info","caller":"reggol/golden_pc_test.go:11","message":"with a call site","k":"v"}
+caller and blocks          | {"ts":"2026-08-12T13:45:30Z","level":"info","caller":"reggol/golden_pc_test.go:11","blocks":["API"],"message":"m"}
 level trace                | {"ts":"2026-08-12T13:45:30Z","level":"trace","message":"leveled","n":1}
 level debug                | {"ts":"2026-08-12T13:45:30Z","level":"debug","message":"leveled","n":1}
 level info                 | {"ts":"2026-08-12T13:45:30Z","level":"info","message":"leveled","n":1}

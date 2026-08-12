@@ -134,6 +134,13 @@ func (c *ConsoleEncoder) AppendEvent(dst []byte, d *EventData) []byte {
 		dst = c.appendLevel(dst, d.level)
 	}
 
+	if hasCaller(d) {
+		dst = appendSpace(dst, &sep)
+		dst = c.keyStyle.open(dst)
+		dst = c.appendCaller(dst, d)
+		dst = c.keyStyle.close(dst)
+	}
+
 	for i := range d.blocks {
 		dst = appendSpace(dst, &sep)
 		dst = d.blocks[i].appendTo(dst)

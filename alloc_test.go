@@ -102,6 +102,11 @@ func TestZeroAllocations(t *testing.T) {
 			emit: func(l Logger) { l.Info().Str("s", "quote\" tab\t nl\n").Msg("m") },
 		},
 		{
+			name: "caller",
+			enc:  NewTextEncoder(),
+			emit: func(l Logger) { l.Info().Str("s", "v").Msg("m") },
+		},
+		{
 			name: "disabled",
 			enc:  NewTextEncoder(),
 			emit: func(l Logger) { l.Trace().Str("s", "v").Msg("m") },
@@ -110,9 +115,39 @@ func TestZeroAllocations(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			l := New(io.Discard, WithEncoder(tc.enc), WithLevel(DebugLevel))
+			opts := []Option{WithEncoder(tc.enc), WithLevel(DebugLevel)}
+			if tc.name == "caller" {
+				opts = append(opts, WithCaller())
+			}
+
+			l := New(io.Discard, opts...)
 
 			if got := testing.AllocsPerRun(200, func() { tc.emit(l) }); got != 0 {
+				t.Fatalf("allocations = %v, want 0", got)
+			}
+		})
+	}
+}
+
+// TestCallerZeroAllocations pins the property that made FuncForPC worth the
+// trouble: recording the call site costs time but not memory, in every encoder.
+func TestCallerZeroAllocations(t *testing.T) {
+	withGlobalLevel(t, TraceLevel)
+
+	for _, tc := range []struct {
+		name string
+		enc  Encoder
+	}{
+		{"text", NewTextEncoder()},
+		{"console", NewConsoleEncoder(WithColorMode(ColorNever, nil))},
+		{"json", NewJSONEncoder()},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			l := New(io.Discard, WithEncoder(tc.enc), WithLevel(TraceLevel), WithCaller())
+
+			if got := testing.AllocsPerRun(200, func() {
+				l.Info().Str("k", "v").Msg("m")
+			}); got != 0 {
 				t.Fatalf("allocations = %v, want 0", got)
 			}
 		})

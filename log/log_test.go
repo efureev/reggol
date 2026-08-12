@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -261,4 +264,70 @@ func TestDefaultLoggerIsSynchronised(t *testing.T) {
 	if got := strings.Count(buf.String(), "\n"); got != 1000 {
 		t.Fatalf("lines = %d, want 1000", got)
 	}
+}
+
+// TestFacadeReportsCallSite covers the extra frame this package adds.
+//
+// Without AddCallerSkip in the event constructors the reported position would
+// be inside log/log.go rather than the code that called it.
+func TestFacadeReportsCallSite(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		emit func() string
+	}{
+		{"Info", func() string { log.Info().Msg("m"); return here() }},
+		{"Warn", func() string { log.Warn().Msg("m"); return here() }},
+		{"Err", func() string { log.Err(errors.New("x")).Msg("m"); return here() }},
+		{"WithLevel", func() string { log.WithLevel(reggol.WarnLevel).Msg("m"); return here() }},
+		{"Ctx", func() string { log.Ctx(t.Context(), reggol.InfoLevel).Msg("m"); return here() }},
+		{"Print", func() string { log.Print("m"); return here() }},
+		{"Log", func() string { log.Log().Msg("m"); return here() }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			buf := captureWithCaller(t)
+
+			want := tc.emit()
+
+			if got := buf.String(); !strings.Contains(got, "caller="+want) {
+				t.Fatalf("call site mismatch\n  want: caller=%s\n   got: %s", want, strings.TrimSpace(got))
+			}
+		})
+	}
+}
+
+// captureWithCaller redirects the package logger into a buffer, with call sites on.
+func captureWithCaller(t *testing.T) *bytes.Buffer {
+	t.Helper()
+
+	prev := log.L()
+	t.Cleanup(func() { log.SetLogger(prev) })
+
+	prevGlobal := reggol.GlobalLevel()
+	t.Cleanup(func() { reggol.SetGlobalLevel(prevGlobal) })
+	reggol.SetGlobalLevel(reggol.TraceLevel)
+
+	buf := &bytes.Buffer{}
+	log.SetLogger(reggol.New(buf,
+		reggol.WithEncoder(reggol.NewTextEncoder(reggol.WithoutTimestamp(), reggol.WithoutLevel())),
+		reggol.WithLevel(reggol.TraceLevel),
+		reggol.WithCaller(),
+	))
+
+	return buf
+}
+
+// here returns the position of the line that called it, shortened the way the
+// encoders shorten it.
+func here() string {
+	_, file, line, ok := runtime.Caller(1)
+	if !ok {
+		return "<unknown>"
+	}
+
+	parts := strings.Split(filepath.ToSlash(file), "/")
+	if len(parts) >= 2 {
+		file = strings.Join(parts[len(parts)-2:], "/")
+	}
+
+	return file + ":" + strconv.Itoa(line)
 }

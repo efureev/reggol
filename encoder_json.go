@@ -48,6 +48,14 @@ func (j *JSONEncoder) AppendEvent(dst []byte, d *EventData) []byte {
 		dst = appendJSONString(dst, d.level.String())
 	}
 
+	if hasCaller(d) {
+		dst = appendJSONSep(dst, &sep)
+		dst = appendJSONKey(dst, CallerFieldName)
+		dst = append(dst, '"')
+		dst = j.appendCaller(dst, d)
+		dst = append(dst, '"')
+	}
+
 	if len(d.blocks) > 0 {
 		dst = appendJSONSep(dst, &sep)
 		dst = appendJSONKey(dst, j.blocksKey)

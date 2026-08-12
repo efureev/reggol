@@ -13,6 +13,10 @@ import (
 // already owns a slog pipeline and you want reggol's chained API in front of
 // it. Records are handed over structurally — no text is produced on the way.
 //
+// Call sites reach the handler only when the logger captures them: pass
+// reggol.WithCaller() if the handler downstream uses AddSource, otherwise the
+// record carries a zero program counter and no source is reported.
+//
 // Two level thresholds apply, and a record has to clear both: reggol's own —
 // the returned logger accepts everything, but the process-wide
 // reggol.GlobalLevel still filters, and it defaults to InfoLevel — and then the
@@ -60,7 +64,7 @@ func (f *forwarder) AppendEvent(dst []byte, d *reggol.EventData) []byte {
 		return dst
 	}
 
-	rec := slog.NewRecord(d.Time(), lvl, string(d.MessageBytes()), 0)
+	rec := slog.NewRecord(d.Time(), lvl, string(d.MessageBytes()), d.PC())
 
 	if blocks := d.Blocks(); len(blocks) > 0 {
 		texts := make([]string, len(blocks))

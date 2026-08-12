@@ -260,3 +260,69 @@ func (p *contextProbe) Handle(ctx context.Context, _ slog.Record) error {
 func (p *contextProbe) WithAttrs([]slog.Attr) slog.Handler { return p }
 
 func (p *contextProbe) WithGroup(string) slog.Handler { return p }
+
+// TestFromHandlerCarriesCallSite closes the gap that motivated the whole
+// feature: before this, AddSource produced nothing because the bridge passed a
+// zero program counter.
+func TestFromHandlerCarriesCallSite(t *testing.T) {
+	var buf bytes.Buffer
+
+	logger := slogr.FromHandler(
+		slog.NewJSONHandler(&buf, &slog.HandlerOptions{AddSource: true}),
+		reggol.WithCaller(),
+	)
+
+	logger.Info().Msg("where am I")
+
+	got := decode(t, &buf)
+
+	src, ok := got["source"].(map[string]any)
+	if !ok {
+		t.Fatalf("no source in %s", buf.String())
+	}
+
+	file, _ := src["file"].(string)
+	if !strings.HasSuffix(file, "forward_test.go") {
+		t.Fatalf("source.file = %v, want this test file", src["file"])
+	}
+
+	if line, _ := src["line"].(float64); line == 0 {
+		t.Fatalf("source.line = %v", src["line"])
+	}
+}
+
+// TestFromHandlerWithoutCallerHasNoSource pins the opt-in: capturing costs time,
+// so it happens only when asked for.
+func TestFromHandlerWithoutCallerHasNoSource(t *testing.T) {
+	var buf bytes.Buffer
+
+	slogr.FromHandler(slog.NewJSONHandler(&buf, &slog.HandlerOptions{AddSource: true})).
+		Info().Msg("m")
+
+	if _, present := decode(t, &buf)["source"]; present {
+		t.Fatalf("source reported without WithCaller: %s", buf.String())
+	}
+}
+
+// TestHandlerUsesSlogCallSite covers the other direction: slog captured the
+// position already, and the bridge must use it rather than a line inside slogr.
+func TestHandlerUsesSlogCallSite(t *testing.T) {
+	var buf bytes.Buffer
+
+	sink := reggol.New(&buf,
+		reggol.WithEncoder(reggol.NewTextEncoder(reggol.WithoutTimestamp(), reggol.WithoutLevel())),
+		reggol.WithLevel(reggol.TraceLevel),
+		reggol.WithCaller(),
+	)
+
+	slogr.New(sink).Info("m")
+
+	got := buf.String()
+	if !strings.Contains(got, "slogr_test") && !strings.Contains(got, "forward_test.go") {
+		t.Fatalf("call site should point at this test, got %q", got)
+	}
+
+	if strings.Contains(got, "slogr/slogr.go") || strings.Contains(got, "slogr/forward.go") {
+		t.Fatalf("call site points inside the bridge: %q", got)
+	}
+}

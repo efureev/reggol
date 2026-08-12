@@ -157,6 +157,24 @@ func ExampleLogger_Ctx() {
 	// Output: INF handled trace_id=abc123
 }
 
+func ExampleWithCaller() {
+	enc := reggol.NewConsoleEncoder(
+		reggol.WithColorMode(reggol.ColorNever, nil),
+		reggol.WithConsoleOptions(reggol.WithoutTimestamp()),
+	)
+
+	logger := reggol.New(os.Stdout,
+		reggol.WithEncoder(enc),
+		reggol.WithLevel(reggol.TraceLevel),
+		reggol.WithCaller(),
+	)
+
+	logger.Info().Str("user", "alice").Msg("signed in")
+
+	// The position is this file and the line above, so the output is not
+	// asserted here; see TestCallerReportsCallSite for the exact check.
+}
+
 func ExampleEvent_Dur() {
 	logger := stdout()
 	logger.Info().Dur("elapsed", 1500*time.Millisecond).Msg("done")

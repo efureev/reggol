@@ -9,6 +9,7 @@ const (
 	LevelFieldName     = "level"
 	MessageFieldName   = "message"
 	BlocksFieldName    = "blocks"
+	CallerFieldName    = "caller"
 )
 
 // Default time layouts.

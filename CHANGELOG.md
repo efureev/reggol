@@ -7,6 +7,29 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Call sites.** `WithCaller` records where each record was produced;
+  `Event.Caller` opts in for a single event, and `AddCallerSkip` lets wrapping
+  code report its own callers rather than itself. The position is rendered after
+  the level in the console and as a `caller` field in the text and JSON
+  encoders, shortened to the last two path segments.
+- `EventData.PC`, `EventData.Caller` and `EventData.CallerFunction` expose the
+  call site to encoders and formatting hooks; `WithCallerFormatter` overrides how
+  it is rendered.
+- `slogr` now carries call sites in both directions: `FromHandler` fills the
+  program counter in `slog.Record`, so a downstream handler with `AddSource: true`
+  finally reports a source, and `NewHandler` uses the counter slog captured
+  instead of a position inside the bridge.
+
+### Changed
+
+- Every public event constructor now calls one internal funnel directly. `Err` no
+  longer routes through `Error`, `WithLevel` no longer through `Fatal`/`Panic`,
+  `Ctx` no longer through `WithLevel`, and `Print`/`Printf`/`Println` no longer
+  through `Debug`. Behaviour is unchanged; the uniform call depth is what makes a
+  single caller-skip constant correct.
+
 ## [1.0.0] — 2026-08-12
 
 A complete rewrite of the core. **There is no API in common with the 0.x line and no migration path**; pin `v0.4.1` if
@@ -205,7 +228,8 @@ Everything in this section is breaking.
 - Initial release: `Logger → Transformer → Writer` architecture, console and text transformers, blocks, levels, and the
   global `log/` facade.
 
-[Unreleased]: https://github.com/efureev/reggol/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/efureev/reggol/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/efureev/reggol/compare/v0.4.1...v1.0.0
 [0.4.1]: https://github.com/efureev/reggol/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/efureev/reggol/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/efureev/reggol/compare/v0.3.0...v0.3.1

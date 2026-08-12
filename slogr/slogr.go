@@ -44,7 +44,10 @@ func (h *Handler) Handle(ctx context.Context, r slog.Record) error {
 
 	// A zero Record.Time must not be emitted; reggol suppresses the timestamp
 	// for the zero time, so this covers both cases in one assignment.
-	e.Timestamp(r.Time)
+	// slog captured the call site already; capturing our own here would point
+	// at this bridge. A zero PC clears whatever the logger may have recorded,
+	// so no bogus position is printed.
+	e.Timestamp(r.Time).CallerPC(r.PC)
 
 	r.Attrs(func(a slog.Attr) bool {
 		for _, f := range appendAttr(nil, h.groups, a) {

@@ -101,6 +101,16 @@ func goldenCases() []goldenCase {
 		{"long message", func(d *EventData) {
 			d.message = []byte(strings.Repeat("long ", 12))
 		}},
+		{"caller", func(d *EventData) {
+			d.message = []byte("with a call site")
+			d.pc = goldenPC
+			d.fields = []Field{String("k", "v")}
+		}},
+		{"caller and blocks", func(d *EventData) {
+			d.message = []byte("m")
+			d.pc = goldenPC
+			d.blocks = Blocks{{Text: "API"}}
+		}},
 	}
 
 	// Sweep every level over a fixed body.

@@ -38,6 +38,11 @@ type (
 	MessageFormatter func(dst []byte, msg []byte) []byte
 	// BlocksFormatter renders the blocks.
 	BlocksFormatter func(dst []byte, b Blocks) []byte
+	// CallerFormatter renders the call site.
+	//
+	// file is the full source path; the built-in encoders shorten it to the
+	// last two segments before printing.
+	CallerFormatter func(dst []byte, file string, line int) []byte
 )
 
 // baseEncoder carries the options and hooks shared by the built-in encoders.
@@ -64,6 +69,7 @@ type baseEncoder struct {
 	FormatValue   ValueFormatter
 	FormatMessage MessageFormatter
 	FormatBlocks  BlocksFormatter
+	FormatCaller  CallerFormatter
 
 	BeforeEncode func(d *EventData)
 	AfterEncode  func(d *EventData)
@@ -138,6 +144,30 @@ func (b *baseEncoder) appendMessage(dst, msg []byte) []byte {
 	return append(dst, msg...)
 }
 
+// appendCaller renders the call site, honoring a custom hook.
+//
+// Nothing is appended when no caller was captured, so an encoder needs no
+// special case for the default configuration.
+func (b *baseEncoder) appendCaller(dst []byte, d *EventData) []byte {
+	if b.FormatCaller == nil {
+		return appendCallerPosition(dst, d.pc)
+	}
+
+	file, line, ok := resolvePC(d.pc)
+	if !ok {
+		return dst
+	}
+
+	return b.FormatCaller(dst, file, line)
+}
+
+// hasCaller reports whether the event carries a resolvable call site.
+func hasCaller(d *EventData) bool {
+	_, _, ok := resolvePC(d.pc)
+
+	return ok
+}
+
 // orderedFields returns the event fields in output order.
 //
 // Sorting happens in place on the event's own slice, which is pooled, so no
@@ -204,6 +234,11 @@ func WithValueFormatter(fn ValueFormatter) EncoderOption {
 // WithMessageFormatter overrides message rendering.
 func WithMessageFormatter(fn MessageFormatter) EncoderOption {
 	return func(b *baseEncoder) { b.FormatMessage = fn }
+}
+
+// WithCallerFormatter overrides call-site rendering.
+func WithCallerFormatter(fn CallerFormatter) EncoderOption {
+	return func(b *baseEncoder) { b.FormatCaller = fn }
 }
 
 // WithBlocksFormatter overrides blocks rendering.

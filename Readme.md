@@ -35,6 +35,7 @@ Supported Go versions: 1.25+.
 - Child loggers with bound fields: `logger.With().Str("service", "auth").Logger()`.
 - `context.Context` support, including pluggable extractors for trace identifiers.
 - `log/slog` bridge in `slogr/`, verified against the standard library's own conformance suite.
+- Optional call sites (`WithCaller`), still allocation-free.
 - Blocks — short tags in front of the message.
 - Concurrency-safe by construction via `SyncWriter`.
 - Typed, allocation-free formatting hooks.
@@ -180,6 +181,35 @@ logger := reggol.New(os.Stdout,
 
 logger.Ctx(ctx, reggol.InfoLevel).Msg("handled")
 ```
+
+## Call sites
+
+`WithCaller` records where each record was produced:
+
+```go
+logger := reggol.New(os.Stdout, reggol.WithCaller())
+logger.Info().Str("user", "alice").Msg("signed in")
+// 2:09PM INF api/handler.go:42 signed in user=alice
+```
+
+The path is shortened to its last two segments, which tells you the package
+without leaking the build machine's directory layout. Text and JSON put it in a
+`caller` field.
+
+It is off by default because it is not free: capturing and resolving a program
+counter costs roughly 2.5x the price of a record — about 78 ns to 200 ns on an
+M5 Pro — though it still allocates nothing. Enable it per event instead with
+`Event.Caller()` when only a few sites matter.
+
+Code that wraps reggol behind its own helpers must account for the frames it
+adds, or the reported position will be the wrapper:
+
+```go
+func (l MyLogger) Info(msg string) { l.inner.AddCallerSkip(1).Info().Msg(msg) }
+```
+
+`EventData.Caller` and `EventData.CallerFunction` expose the position and the
+function name to formatting hooks.
 
 ## Blocks
 
