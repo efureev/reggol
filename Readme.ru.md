@@ -1,12 +1,16 @@
 # Reggol
 
-Reggol — лёгковесный логгер в духе zerolog c понятной архитектурой «Logger → Transformer → Writer» и акцентом на быстрый консольный вывод.
+Reggol — логгер без аллокаций с ясной архитектурой `Logger → Encoder → Writer` и упором на
+быстрый, красивый консольный вывод.
 
-Основан на идеях [zerolog](https://github.com/rs/zerolog), но проще и с другим форматом вывода. Поддерживает «блоки» (Blocks), настраиваемые трансформеры и работу через глобальный фасад `log/`.
-
-[![Go Coverage](https://github.com/efureev/reggol/wiki/coverage.svg)](https://raw.githack.com/wiki/efureev/reggol/coverage.html)
+Вдохновлён [zerolog](https://github.com/rs/zerolog), но компактнее, с другим форматом вывода,
+блоками и полноценным мостом к `log/slog`.
 
 Языки: [English](./Readme.md) | Русский
+
+> **v1 — чистый разрыв.** Общего API с веткой 0.x нет, миграции тоже нет: ядро переписано, чтобы
+> убрать аллокации, закрыть гонку данных при конкурентном логировании и добавить дочерние
+> логгеры, контексты и машиночитаемый вывод. Нужен старый API — фиксируйте `v0.4.1`.
 
 ## Установка
 
@@ -16,25 +20,27 @@ go get github.com/efureev/reggol
 go get github.com/efureev/reggol/log
 ```
 
-Поддерживаются версии Go 1.24+.
+Поддерживаемые версии Go: 1.25+.
 
 ## Возможности
 
-- Минимальные аллокации, простой API в стиле chain: `logger.Info().Str("k","v").Msg("hi")`.
-- Два трансформера из коробки:
-  - ConsoleTransformer — красивый консольный вывод с цветами.
-  - TextTransformer — плоский текст `key=value` (удобно для лог-файлов/груберов).
-- Блоки (Blocks) — короткие пометки/тэги перед сообщением.
-- Глобальный фасад `github.com/efureev/reggol/log` — как стандартный `log`, но с уровнями.
-- Глобальный уровень логирования (можно «поднять» минимум для всех логгеров).
-- Настраиваемые форматтеры (хуки) на уровне трансформеров.
-- Опция сортировки полей (`SortFields`) для стабильного вывода (по умолчанию включена).
+- **Ноль аллокаций** на всех встроенных путях — сообщение, типизированные поля, ошибки, блоки,
+  цвет, дочерние логгеры. Это проверяется в CI, а не просто измеряется.
+- Три энкодера: `ConsoleEncoder` (человекочитаемый, цветной), `TextEncoder` (плоский `key=value`),
+  `JSONEncoder` (по объекту на строку).
+- Дочерние логгеры с привязанными полями: `logger.With().Str("service", "auth").Logger()`.
+- Поддержка `context.Context`, включая подключаемые экстракторы идентификаторов трассировки.
+- Мост к `log/slog` в `slogr/`, проверенный официальным conformance-набором стандартной библиотеки.
+- Блоки — короткие метки перед сообщением.
+- Потокобезопасность по построению через `SyncWriter`.
+- Типизированные хуки форматирования без аллокаций.
+- Автоопределение цвета с учётом `NO_COLOR` и `FORCE_COLOR`.
 
-Срезано по сравнению с zerolog: hooks, sampling, stacktrace, контекст и CBOR — пакет намеренно компактный.
+Намеренно меньше zerolog: без сэмплирования, стектрейсов и CBOR.
 
 ## Быстрый старт
 
-Глобальный фасад уже готов к использованию и пишет в stderr с «красивым» консольным форматом:
+Глобальный фасад готов к работе: пишет человекочитаемый вывод в stderr, с синхронизацией.
 
 ```go
 package main
@@ -46,44 +52,53 @@ func main() {
 }
 ```
 
-Создание собственного логгера:
+Свой логгер:
 
 ```go
 package main
 
 import (
+    "os"
+
     "github.com/efureev/reggol"
 )
 
 func main() {
-    // Console (по умолчанию с цветами, можно отключить):
-    cw := reggol.NewConsoleWriter()
-    logger := reggol.New(cw)
+    logger := reggol.New(os.Stdout)
     logger.Info().Str("user", "bob").Msg("signed in")
 
-    // Плоский текст (key=value):
-    tt := reggol.NewTextTransformer("")
-    cw2 := reggol.NewConsoleWriter(func(w *reggol.ConsoleWriter) { w.Trans = tt })
-    reggol.New(cw2).Warn().Msg("disk almost full")
+    // Плоский текст key=value:
+    text := reggol.New(os.Stdout, reggol.WithEncoder(reggol.NewTextEncoder()))
+    text.Warn().Msg("disk almost full")
 }
+```
+
+`New` возвращает значение, и все методы объявлены на значении, поэтому работает и запись в одну
+строку:
+
+```go
+reggol.New(os.Stdout, reggol.WithEncoder(reggol.NewTextEncoder())).Warn().Msg("disk almost full")
 ```
 
 ## Уровни логирования
 
-Уровни: `Trace < Debug < Info < Warn < Error < Fatal < Panic`. По умолчанию глобально — `Info`.
+Уровни: `Trace < Debug < Info < Warn < Error < Fatal < Panic`. Порогов два, и событие обязано
+пройти оба: собственный минимум логгера и глобальный. Глобальный по умолчанию — `Info`, поэтому
+`Debug` не виден, пока его не понизить.
 
 ```go
 import (
     "flag"
+
     "github.com/efureev/reggol"
     "github.com/efureev/reggol/log"
 )
 
 func main() {
-    dbg := flag.Bool("debug", false, "enable debug")
+    debug := flag.Bool("debug", false, "enable debug")
     flag.Parse()
 
-    if *dbg {
+    if *debug {
         reggol.SetGlobalLevel(reggol.DebugLevel)
     }
 
@@ -92,10 +107,10 @@ func main() {
 }
 ```
 
-Локальный уровень у конкретного логгера:
+Минимум конкретного логгера:
 
 ```go
-logger := reggol.New(reggol.NewConsoleWriter()).Level(reggol.WarnLevel)
+logger := reggol.New(os.Stdout).Level(reggol.WarnLevel)
 logger.Info().Msg("hidden")   // ниже warn
 logger.Error().Msg("visible") // >= warn
 ```
@@ -105,113 +120,188 @@ logger.Error().Msg("visible") // >= warn
 ```go
 log.Info().Str("user", "alice").Int("age", 30).Msg("profile updated")
 
-// Ошибки: Err добавляет поле ошибки; для глобального фасада формат зависит от трансформера
-log.Error().Err(fmt.Errorf("db down")).Msg("")
+// Ошибка не вытесняет сообщение — выводится и то, и другое.
+log.Error().Err(errors.New("db down")).Str("host", "db-1").Msg("query failed")
+// ERR query failed db down host=db-1
 
-// Произвольные объекты
-type payload struct{ A int }
-log.Info().Interface("obj", payload{A: 1}).Msg("with object")
+// Явный ключ учитывается.
+log.Error().AnErr("cause", err).Msg("failed")
 ```
 
-Поведение ошибок:
-- ConsoleTransformer показывает текст ошибки без ключа (выделяя цветом).
-- TextTransformer выводит `error=<text>`.
+Типизированные сеттеры — `Str`, `Int`, `Int64`, `Uint64`, `Float64`, `Bool`, `Dur`, `Time`,
+`Bytes`, `IPAddr`, `Any` — сохраняют значение без боксинга, и именно отсюда берётся отсутствие
+аллокаций. `Any` выбирает максимально конкретное представление.
+
+Поля сортируются по ключу ради стабильного вывода; `WithoutSort()` оставляет порядок вставки.
+Повторный ключ выводится дважды, а не заменяет первый, — так же поступает `log/slog`.
+
+## Дочерние логгеры
+
+Привяжите поля один раз и платите копированием памяти на строку вместо повторного кодирования:
+
+```go
+requestLog := logger.With().
+    Str("service", "auth").
+    Int("shard", 7).
+    Logger()
+
+requestLog.Info().Str("user", "alice").Msg("token issued")
+// INF token issued service=auth shard=7 user=alice
+```
+
+Привязанные поля идут перед полями события, а сортировка применяется внутри каждой группы, а не
+сквозь обе: сквозная потребовала бы декодировать привязанный префикс на каждой строке.
+
+Настраивайте энкодер до создания дочерних логгеров: привязанные поля кодируются в момент вызова
+`Logger()`, поэтому более поздние изменения хуков на них не распространяются.
+
+## Контексты
+
+```go
+ctx := logger.WithContext(context.Background())
+if l, ok := reggol.FromContext(ctx); ok {
+    l.Info().Msg("found in context")
+}
+```
+
+Экстракторы переносят значения из контекста в каждое событие. Если их нет, путь бесплатен:
+
+```go
+logger := reggol.New(os.Stdout,
+    reggol.WithContextExtractor(func(ctx context.Context, e *reggol.Event) {
+        if id, ok := ctx.Value(traceKey{}).(string); ok {
+            e.Str("trace_id", id)
+        }
+    }),
+)
+
+logger.Ctx(ctx, reggol.InfoLevel).Msg("handled")
+```
 
 ## Блоки (Blocks)
 
-Блоки — короткие маркеры перед сообщением (например, имя компонента, тэг запроса):
+Блоки — короткие маркеры перед сообщением: имя компонента, метка запроса.
 
 ```go
 log.Info().Blocks("API", "GET /users").Msg("ok")
 
-// Тонкая настройка:
 block := reggol.NewBlock("auth", func(s string) string { return "[" + s + "]" })
 log.Info().Block(block).Msg("token verified")
 ```
 
-В консоли блоки выводятся перед сообщением через пробел; в текстовом трансформере доступен формат `blocks=[...]`.
+## Энкодеры
 
-## Трансформеры и настройка формата
+| Энкодер | Вывод |
+|---|---|
+| `NewConsoleEncoder` | `2:09PM INF hello int=123 string=four!` |
+| `NewTextEncoder` | `ts=…, level=info, message=hello, int=123` |
+| `NewJSONEncoder` | `{"ts":"…","level":"info","message":"hello","int":123}` |
 
-Доступные трансформеры:
-- `ConsoleTransformer(noColor bool, timeFormat string)` — человекочитаемый формат, короткие уровни (`INF/WRN/ERR`), цвета.
-- `TextTransformer(timeFormat string)` — `key=value` формат, удобен для парсинга.
+Общие опции: `WithTimeFormat`, `WithoutTimestamp`, `WithoutLevel`, `WithoutSort`, `WithKeyNames`,
+плюс хуки форматирования `WithLevelFormatter`, `WithTimeFormatter`, `WithFieldFormatter`,
+`WithKeyFormatter`, `WithValueFormatter`, `WithMessageFormatter`, `WithBlocksFormatter`,
+`WithBeforeEncode`, `WithAfterEncode`.
 
-Общие опции (через методы и поля `AbstractTransformer`):
-- `HideTimestamp()` / `HideLevel()` — скрыть метку времени/уровень.
-- `SetSortFields(false)` или `DisableSort()` — отключить сортировку полей (быстрее, но порядок не гарантируется).
-- Кастомизация форматирования (устанавливаются функциями):
-  - `FormatLevelFn`
-  - `FormatTimestampFn`
-  - `FormatFieldFn`, `FormatFieldNameFn`, `FormatFieldValueFn`
-  - `FormatMessageFn`, `FormatErrorFn`
-  - `BeforeTransformFn` / `AfterTransformFn`
-
-Пример отключения сортировки полей:
+Хуки дописывают в буфер вызывающей стороны, а не возвращают строку, поэтому настройка вывода
+ничего не стоит:
 
 ```go
-tr := reggol.NewConsoleTransformer(false, "")
-tr.DisableSort() // или tr.SetSortFields(false)
-logger := reggol.New(reggol.NewConsoleWriter(func(w *reggol.ConsoleWriter) { w.Trans = tr }))
+enc := reggol.NewTextEncoder(
+    reggol.WithLevelFormatter(func(dst []byte, l reggol.Level) []byte {
+        return append(dst, strings.ToUpper(l.String())...)
+    }),
+)
 ```
 
-## Writers
+Опции консоли задаются через `WithColorMode` и `WithConsoleOptions`:
 
-- `ConsoleWriter` — пишет в `io.Writer` (stdout по умолчанию). Добавляет завершающий перевод строки.
-- `TransformWriterAdapter` — адаптер для произвольного `io.Writer` + выбранный трансформер. Тоже гарантирует ровно один перевод строки.
-- Любой `Logger` можно использовать как `io.Writer` (метод `Write` форматирует как `Log().Msg(string(p))`).
+```go
+enc := reggol.NewConsoleEncoder(
+    reggol.WithColorMode(reggol.ColorAuto, os.Stderr),
+    reggol.WithConsoleOptions(reggol.WithTimeFormat(time.RFC3339)),
+)
+```
 
-Глобальный фасад `log` уже сконфигурирован на `ConsoleWriter` с выводом в stderr.
+`ColorAuto` включает цвет, только если получатель — терминал, и учитывает `NO_COLOR`,
+`FORCE_COLOR` и `TERM=dumb`. `ColorAlways` и `ColorNever` решают за вас.
+
+## Writers и конкурентность
+
+Логгер настолько же потокобезопасен, насколько потокобезопасен writer под ним, а большинство
+writer'ов — включая `bytes.Buffer` и любые обёртки над ним — небезопасны вовсе. Оборачивайте:
+
+```go
+logger := reggol.New(reggol.SyncWriter(out))
+```
+
+Фасад в `log/` уже это делает. `MultiWriter` рассылает одно событие в несколько мест.
+
+Энкодеры завершают запись ровно одним `\n`; writer'ы передают байты без изменений.
+
+## Мост к log/slog
+
+`slogr` делает reggol бэкендом для структурного логгера стандартной библиотеки. Пакет проходит
+`testing/slogtest` — conformance-набор, который поставляется вместе с `log/slog`.
+
+```go
+import (
+    "log/slog"
+
+    "github.com/efureev/reggol"
+    "github.com/efureev/reggol/slogr"
+)
+
+logger := slogr.New(reggol.New(os.Stdout, reggol.WithEncoder(reggol.NewJSONEncoder())))
+logger.Info("handled", slog.String("user", "alice"))
+```
+
+Атрибуты, привязанные через `WithAttrs`, используют то же предкодирование, что и `With()`. Группы
+разворачиваются в ключи через точку — так они сохраняют смысл и в консольной строке `key=value`.
+
+Для slog-совместимых имён ключей:
+
+```go
+reggol.NewJSONEncoder(reggol.WithKeyNames(slog.TimeKey, slog.LevelKey, slog.MessageKey))
+```
 
 ## Поведение Fatal и Panic
 
-- `logger.Fatal().Msg(...)` — перед выходом пытается закрыть writer, затем вызывает `os.Exit(ExitCode)` (по умолчанию 1).
-- `logger.Panic().Msg(...)` — вызывает `panic(msg)` после записи.
-
-## Юзкейсы
-
-Вот несколько практических сценариев использования пакета.
-
-1) CLI-инструменты и сервисы со «вкусным» консольным логом
-- используйте `ConsoleTransformer` (по умолчанию в глобальном фасаде), блоки для кратких тэгов, цветные уровни
-```go
-log.Info().Blocks("CLI").Msg("starting")
-log.Warn().Blocks("db").Msg("reconnect")
-```
-
-2) Логи для парсинга и сбора метрик
-- используйте `TextTransformer`, отключите цвета, оставьте `key=value`
-```go
-tr := reggol.NewTextTransformer("")
-cw := reggol.NewConsoleWriter(func(w *ConsoleWriter) { w.Trans = tr })
-logger := reggol.New(cw)
-logger.Info().Str("service", "auth").Int("status", 200).Msg("request")
-```
-
-3) Оборачивание сторонних библиотек, которые требуют `io.Writer`
-```go
-logger := reggol.New(reggol.NewConsoleWriter()).Level(reggol.DebugLevel)
-someLib.SetOutput(&logger) // Logger реализует io.Writer
-```
-
-4) Производительная запись без стабильного порядка полей
-```go
-tr := reggol.NewConsoleTransformer(true, "")
-tr.DisableSort() // быстрее при очень большом числе полей
-logger := reggol.New(reggol.NewConsoleWriter(func(w *reggol.ConsoleWriter) { w.Trans = tr }))
-```
+- `logger.Fatal().Msg(…)` закрывает writer для сброса буферов, затем вызывает
+  `os.Exit(ExitCode())`, по умолчанию 1. Процесс завершается, **даже если уровень отфильтровал
+  событие**: подавление записи — решение логирования, а подавление завершения превратило бы
+  поднятие уровня в тихое изменение потока управления.
+- `logger.Panic().Msg(…)` записывает событие, затем паникует с этим сообщением.
 
 ## Глобальные настройки
 
-- `reggol.SetGlobalLevel(lvl)` — установить минимальный глобальный уровень (например, `Disabled` для полного молчания).
-- `reggol.GlobalLevel()` — получить текущий глобальный уровень.
-- `reggol.ExitCode` — код выхода при `Fatal()` (по умолчанию 1).
+- `reggol.SetGlobalLevel(lvl)` / `reggol.GlobalLevel()` — минимум для всего процесса.
+- `reggol.SetExitCode(code)` / `reggol.ExitCode()` — код возврата для `Fatal`.
+- `reggol.SetErrorHandler(fn)` — вызывается при ошибке записи события; без него ошибки печатаются
+  в stderr.
+
+Всё перечисленное защищено атомиками и безопасно меняется в рантайме.
 
 ## Советы по производительности
 
-- Отключайте сортировку полей (`DisableSort()`), если порядок не важен.
-- Переиспользуйте один логгер на компонент/модуль вместо создания нового на каждый лог.
-- Избегайте тяжёлых форматирований в `Msgf`, если сообщение может быть отфильтровано по уровню; проверяйте `e.Enabled()`.
+Замерено на go1.26, darwin/arm64, Apple M5 Pro, через `go test -bench=. -benchmem`:
+
+| Бенчмарк | ns/op | allocs/op |
+|---|---:|---:|
+| `Disabled` | ~0.4 | **0** |
+| `LogFields` (3 типизированных поля) | ~32–40 | **0** |
+| `Info` (только сообщение) | ~58–66 | **0** |
+| `Child` (3 привязанных поля) | ~65 | **0** |
+| `slog TextHandler` из stdlib (те же поля) | ~227 | 3 |
+
+Время зависит от загрузки машины, число аллокаций — нет; поэтому CI блокирует сборку по
+аллокациям, а тайминги считает справочными.
+
+Рекомендации:
+
+- Держите один логгер на компонент вместо создания логгера на строку.
+- Повторяющиеся поля привязывайте через `With()`, а не дублируйте на каждом вызове.
+- `WithoutSort()`, если порядок ключей не важен.
+- Дорогие аргументы `Msgf` закрывайте проверкой `e.Enabled()`.
 
 ## Скриншоты
 

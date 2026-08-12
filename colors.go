@@ -1,64 +1,100 @@
 package reggol
 
 import (
-	"fmt"
-
 	"gh.tarampamp.am/colors"
 )
 
+// TextStyle is an ANSI text style.
 type TextStyle = colors.TextStyle
 
+// ANSI text styles, aliased from the colors package.
+//
+// These are aliases rather than re-declarations on purpose: a re-declared
+// `1 << iota` block would keep compiling while silently drifting from upstream
+// values, producing wrong escape sequences with nothing to catch it.
 const (
-	ColorFgBlack   TextStyle = 1 << iota // Black text color
-	ColorFgRed                           // Red text color
-	ColorFgGreen                         // Green text color
-	ColorFgYellow                        // Yellow text color
-	ColorFgBlue                          // Blue text color
-	ColorFgMagenta                       // Magenta text color
-	ColorFgCyan                          // Cyan text color
-	ColorFgWhite                         // White text color
-	ColorFgDefault                       // Default text color
+	ColorFgBlack   = colors.FgBlack
+	ColorFgRed     = colors.FgRed
+	ColorFgGreen   = colors.FgGreen
+	ColorFgYellow  = colors.FgYellow
+	ColorFgBlue    = colors.FgBlue
+	ColorFgMagenta = colors.FgMagenta
+	ColorFgCyan    = colors.FgCyan
+	ColorFgWhite   = colors.FgWhite
+	ColorFgDefault = colors.FgDefault
+	ColorFgBright  = colors.FgBright
 
-	ColorFgBright // Bright text color, usage example: (FgRed | FgBright).Wrap("hello world")
+	ColorBgBlack   = colors.BgBlack
+	ColorBgRed     = colors.BgRed
+	ColorBgGreen   = colors.BgGreen
+	ColorBgYellow  = colors.BgYellow
+	ColorBgBlue    = colors.BgBlue
+	ColorBgMagenta = colors.BgMagenta
+	ColorBgCyan    = colors.BgCyan
+	ColorBgWhite   = colors.BgWhite
+	ColorBgDefault = colors.BgDefault
+	ColorBgBright  = colors.BgBright
 
-	ColorBgBlack   // Black background color
-	ColorBgRed     // Red background color
-	ColorBgGreen   // Green background color
-	ColorBgYellow  // Yellow background color
-	ColorBgBlue    // Blue background color
-	ColorBgMagenta // Magenta background color
-	ColorBgCyan    // Cyan background color
-	ColorBgWhite   // White background color
-	ColorBgDefault // Default background color
-
-	ColorBgBright // Bright background color, usage example: (BgRed | BgBright).Wrap("hello world")
-
-	ColorBold      // Bold text
-	ColorFaint     // Faint text
-	ColorItalic    // Italic text
-	ColorUnderline // Underline text
-	ColorBlinking  // Blinking text
-	ColorReverse   // Reverse text
-	ColorInvisible // Invisible text
-	ColorStrike    // Strike text
-
-	ColorReset // Reset text style
+	ColorBold      = colors.Bold
+	ColorFaint     = colors.Faint
+	ColorItalic    = colors.Italic
+	ColorUnderline = colors.Underline
+	ColorBlinking  = colors.Blinking
+	ColorReverse   = colors.Reverse
+	ColorInvisible = colors.Invisible
+	ColorStrike    = colors.Strike
+	ColorReset     = colors.Reset
 )
 
-func colorize(s interface{}, c TextStyle, disabled bool) string {
-	if c == 0 {
-		disabled = true
-	}
-
-	str := fmt.Sprintf("%s", s)
-
-	if disabled {
-		return str
-	}
-
-	return c.Wrap(str)
+// style holds the escape sequences for one text style, resolved once at encoder
+// construction instead of on every log line.
+type style struct {
+	start string
+	reset string
 }
 
-func SetColor(s interface{}, c TextStyle, disabled bool) string {
-	return colorize(s, c, disabled)
+// newStyle resolves s into its escape sequences.
+//
+// colors.ColorCodes reports the raw sequences regardless of the package-level
+// Enabled() flag, which is deliberate here: reggol decides about color per
+// encoder, from the writer it actually writes to, not from a global guess about
+// os.Stdout.
+func newStyle(s TextStyle) style {
+	if s == 0 {
+		return style{}
+	}
+
+	start, reset := s.ColorCodes()
+
+	return style{start: start, reset: reset}
+}
+
+// appendTo appends val to dst wrapped in the style.
+func (s style) appendTo(dst []byte, val string) []byte {
+	if s.start == "" {
+		return append(dst, val...)
+	}
+
+	dst = append(dst, s.start...)
+	dst = append(dst, val...)
+
+	return append(dst, s.reset...)
+}
+
+// open appends the opening sequence, if any.
+func (s style) open(dst []byte) []byte {
+	if s.start == "" {
+		return dst
+	}
+
+	return append(dst, s.start...)
+}
+
+// close appends the closing sequence, if any.
+func (s style) close(dst []byte) []byte {
+	if s.start == "" {
+		return dst
+	}
+
+	return append(dst, s.reset...)
 }

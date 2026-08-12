@@ -1,7 +1,7 @@
 package reggol
 
 import (
-	"errors"
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -9,249 +9,323 @@ import (
 	"time"
 )
 
-//nolint:gochecknoglobals
+// Pool ceilings. A single oversized event must not permanently inflate every
+// pooled buffer, which is what the long-standing TODO in v0 warned about and
+// never implemented.
+const (
+	maxPooledBuf    = 64 << 10 // 64 KiB
+	maxPooledFields = 64
+	initialBufCap   = 256
+)
+
+//nolint:gochecknoglobals // sync.Pool is the canonical shape for this
 var eventPool = &sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return &Event{
-			data: EventData{
-				fields: make(Fields),
-			},
+			buf: make([]byte, 0, initialBufCap),
 		}
 	},
 }
 
+// EventData is the fully assembled state of one log event.
+//
+// Every accessor below is exported on purpose: in v0 the equivalent struct had
+// only unexported fields and no accessors, which made it impossible for anyone
+// outside the package to implement the encoder interface at all.
 type EventData struct {
-	level   Level
 	ts      time.Time
-	fields  Fields
-	blocks  Blocks
-	err     error
 	message string
+	fields  []Field
+	blocks  Blocks
+	ctx     []byte
+	level   Level
 }
 
+// Level returns the event level.
+func (d *EventData) Level() Level { return d.level }
+
+// Time returns the event timestamp.
+func (d *EventData) Time() time.Time { return d.ts }
+
+// Message returns the event message.
+func (d *EventData) Message() string { return d.message }
+
+// Fields returns the event fields in their current order.
+func (d *EventData) Fields() []Field { return d.fields }
+
+// Blocks returns the event blocks.
+func (d *EventData) Blocks() Blocks { return d.blocks }
+
+// Prefix returns the parent logger's pre-encoded fields.
+//
+// The bytes are already in the encoder's own syntax and are spliced in ahead of
+// the event fields; this is what makes a child logger cost a memmove rather
+// than a re-encode per line.
+func (d *EventData) Prefix() []byte { return d.ctx }
+
+// Event is a single log record under construction.
+//
+// An Event is pooled. Exactly one terminal call — Msg, Msgf or Send — must be
+// made on it, after which the value must not be touched again.
 type Event struct {
-	w      LevelWriter
+	w      Writer
+	enc    Encoder
+	buf    []byte
 	data   EventData
+	ctx    context.Context //nolint:containedctx // carried for context-aware hooks, never for cancellation
 	doneFn func(msg string)
-	// ctx    context.Context // Optional Go context for event
 }
 
-func newEvent(w LevelWriter, level Level) *Event {
-	//nolint:forcetypeassert
-	e := eventPool.Get().(*Event)
+func newEvent(w Writer, enc Encoder, lvl Level) *Event {
+	e, _ := eventPool.Get().(*Event)
+
 	e.w = w
+	e.enc = enc
+	e.doneFn = nil
+	e.ctx = nil
+	e.buf = e.buf[:0]
+
+	e.data.level = lvl
 	e.data.ts = time.Now()
-	e.data.level = level
-	e.data.err = nil
-	e.data.blocks = nil
-	clearMap(e.data.fields)
-	// e.data = newEventData(level)
+	e.data.message = ""
+	e.data.fields = e.data.fields[:0]
+	e.data.blocks = e.data.blocks[:0]
+	e.data.ctx = nil
 
 	return e
 }
 
-func newEventData(level Level) EventData {
-	return EventData{
-		level:  level,
-		ts:     time.Now(),
-		fields: make(Fields),
+func putEvent(e *Event) {
+	if cap(e.buf) > maxPooledBuf || cap(e.data.fields) > maxPooledFields {
+		return
 	}
+
+	e.w = nil
+	e.enc = nil
+	e.ctx = nil
+	e.doneFn = nil
+
+	eventPool.Put(e)
 }
 
-func (e *Event) write() (err error) {
-	if e == nil {
-		return nil
-	}
-
-	if e.data.level != Disabled {
-		if e.w != nil {
-			_, err = e.w.WriteLevel(e.data)
-		}
-	}
-
-	putEvent(e)
-
-	return
-}
-
+// Enabled reports whether the event will be written.
 func (e *Event) Enabled() bool {
 	return e != nil && e.data.level != Disabled
 }
 
+// Discard drops the event without writing it and returns nil.
+//
+// The event goes back to the pool, unlike in v0 where discarding leaked it.
 func (e *Event) Discard() *Event {
 	if e == nil {
-		return e
+		return nil
 	}
 
-	e.data.level = Disabled
+	putEvent(e)
 
 	return nil
 }
 
+// Ctx attaches a context to the event, for consumption by context extractors.
+func (e *Event) Ctx(ctx context.Context) *Event {
+	if e == nil {
+		return e
+	}
+
+	e.ctx = ctx
+
+	return e
+}
+
+// GetCtx returns the context attached to the event, or context.Background.
+func (e *Event) GetCtx() context.Context {
+	if e == nil || e.ctx == nil {
+		return context.Background()
+	}
+
+	return e.ctx
+}
+
+// Timestamp overrides the event's time.
+//
+// Setting the zero time suppresses the timestamp entirely, which is what an
+// slog.Record with no time requires.
+func (e *Event) Timestamp(t time.Time) *Event {
+	if e == nil {
+		return e
+	}
+
+	e.data.ts = t
+
+	return e
+}
+
+// Field appends a pre-built field.
+func (e *Event) Field(f Field) *Event {
+	if e == nil {
+		return e
+	}
+
+	e.data.fields = append(e.data.fields, f)
+
+	return e
+}
+
+// Fields appends several pre-built fields.
+func (e *Event) Fields(fields ...Field) *Event {
+	if e == nil {
+		return e
+	}
+
+	e.data.fields = append(e.data.fields, fields...)
+
+	return e
+}
+
+// Str adds a string field.
+func (e *Event) Str(key, val string) *Event { return e.Field(String(key, val)) }
+
+// Int adds an int field.
+func (e *Event) Int(key string, val int) *Event { return e.Field(Int(key, val)) }
+
+// Int64 adds an int64 field.
+func (e *Event) Int64(key string, val int64) *Event { return e.Field(Int64(key, val)) }
+
+// Uint64 adds a uint64 field.
+func (e *Event) Uint64(key string, val uint64) *Event { return e.Field(Uint64(key, val)) }
+
+// Float64 adds a float64 field.
+func (e *Event) Float64(key string, val float64) *Event { return e.Field(Float64(key, val)) }
+
+// Bool adds a bool field.
+func (e *Event) Bool(key string, val bool) *Event { return e.Field(Bool(key, val)) }
+
+// Dur adds a duration field.
+func (e *Event) Dur(key string, val time.Duration) *Event { return e.Field(Dur(key, val)) }
+
+// Time adds a time field.
+func (e *Event) Time(key string, val time.Time) *Event { return e.Field(Time(key, val)) }
+
+// Bytes adds a byte-slice field.
+func (e *Event) Bytes(key string, val []byte) *Event { return e.Field(Bytes(key, val)) }
+
+// Interface adds a field holding an arbitrary value.
+func (e *Event) Interface(key string, val any) *Event { return e.Field(Any(key, val)) }
+
+// Any adds a field holding an arbitrary value.
+func (e *Event) Any(key string, val any) *Event { return e.Field(Any(key, val)) }
+
+// IPAddr adds an IP address field.
+func (e *Event) IPAddr(key string, ip net.IP) *Event { return e.Field(Stringer(key, ip)) }
+
+// Err adds an error under the conventional error key.
+//
+// Unlike v0 this never displaces the message: an event may carry both, and both
+// are rendered.
+func (e *Event) Err(err error) *Event {
+	if e == nil || err == nil {
+		return e
+	}
+
+	return e.Field(Err(err))
+}
+
+// AnErr adds an error under an explicit key.
+//
+// The key is honored, which it was not in v0.
+func (e *Event) AnErr(key string, err error) *Event {
+	if e == nil || err == nil {
+		return e
+	}
+
+	return e.Field(AnErr(key, err))
+}
+
+// Block appends a block.
 func (e *Event) Block(block Block) *Event {
 	if e == nil {
 		return e
 	}
 
-	e.data.blocks.AddBlock(block)
+	e.data.blocks = append(e.data.blocks, block)
 
 	return e
 }
 
-func (e *Event) BlockText(msg string) *Event {
+// BlockText appends a plain-text block.
+func (e *Event) BlockText(text string) *Event { return e.Block(Block{Text: text}) }
+
+// Blocks appends several plain-text blocks.
+func (e *Event) Blocks(texts ...string) *Event {
 	if e == nil {
 		return e
 	}
 
-	e.data.blocks.Add(msg)
-
-	return e
-}
-
-func (e *Event) Blocks(msgs ...string) *Event {
-	if e == nil {
-		return e
-	}
-
-	for _, msg := range msgs {
-		e.data.blocks.Add(msg)
+	for _, t := range texts {
+		e.data.blocks = append(e.data.blocks, Block{Text: t})
 	}
 
 	return e
 }
 
+// Msg writes the event with the given message.
+//
+// This is a terminal call: the event returns to the pool and must not be used
+// afterwards.
 func (e *Event) Msg(msg string) {
 	if e == nil {
 		return
 	}
 
-	e.msg(msg)
+	e.write(msg)
 }
 
-func (e *Event) Msgf(format string, v ...interface{}) {
+// Msgf writes the event with a formatted message.
+func (e *Event) Msgf(format string, v ...any) {
 	if e == nil {
 		return
 	}
 
-	e.msg(fmt.Sprintf(format, v...))
+	e.write(fmt.Sprintf(format, v...))
 }
 
-func (e *Event) msg(msg string) {
+// Send writes the event with an empty message.
+func (e *Event) Send() {
+	if e == nil {
+		return
+	}
+
+	e.write("")
+}
+
+func (e *Event) write(msg string) {
 	e.data.message = msg
 
 	if e.doneFn != nil {
 		defer e.doneFn(msg)
 	}
 
-	if err := e.write(); err != nil {
-		if ErrorHandler != nil {
-			ErrorHandler(err)
-		} else {
-			fmt.Fprintf(os.Stderr, "reggol: could not write event: %v\n", err)
-		}
-	}
-}
+	if e.data.level == Disabled || e.w == nil || e.enc == nil {
+		putEvent(e)
 
-func (e *Event) Push() {
-	if e == nil {
 		return
 	}
 
-	e.msg("")
-}
+	e.buf = e.enc.AppendEvent(e.buf[:0], &e.data)
 
-//nolint:wsl
-func putEvent(e *Event) {
-	// Proper usage of a sync.Pool requires each entry to have approximately
-	// the same memory cost. To obtain this property when the stored type
-	// contains a variably-sized buffer, we add a hard limit on the maximum buffer
-	// to place back in the pool.
-	// todo
-	// See https://golang.org/issue/23199
-	// const maxSize = 1 << 16 // 64KiB
-	// if cap(e.buf) > maxSize {
-	//	return
-	// }
-	eventPool.Put(e)
-}
-
-func (e *Event) addField(key string, val any) *Event {
-	if e == nil {
-		return e
+	if _, err := e.w.WriteLevel(e.data.level, e.buf); err != nil {
+		reportWriteError(err)
 	}
 
-	e.data.fields.Add(key, val)
-
-	return e
+	putEvent(e)
 }
 
-// Str adds the field key with val as a string to the *Event context.
-func (e *Event) Str(key, val string) *Event {
-	return e.addField(key, val)
-}
+func reportWriteError(err error) {
+	if fn := errorHandler(); fn != nil {
+		fn(err)
 
-func (e *Event) Int(key string, val int) *Event {
-	return e.addField(key, val)
-}
-
-func (e *Event) Bool(key string, val bool) *Event {
-	return e.addField(key, val)
-}
-
-func (e *Event) Bytes(key string, val []byte) *Event {
-	return e.addField(key, val)
-}
-
-func (e *Event) Time(key string, val time.Time) *Event {
-	return e.addField(key, val)
-}
-
-func (e *Event) Err(err error) *Event {
-	if e == nil {
-		return e
+		return
 	}
 
-	return e.AnErr(ErrorFieldName, err)
-}
-
-func (e *Event) IPAddr(key string, ip net.IP) *Event {
-	return e.addField(key, ip)
-}
-
-func (e *Event) AnErr(key string, err error) *Event {
-	if e == nil {
-		return e
-	}
-
-	if err == nil {
-		return e
-	}
-
-	switch m := ErrorMarshalFunc(err).(type) {
-	case nil:
-		return e
-	case error:
-		if m == nil {
-			return e
-		} else {
-			// todo
-			e.data.err = m
-
-			return e
-		}
-	case string:
-		e.data.err = errors.New(m)
-
-		return e
-	default:
-		return e.Interface(key, m)
-	}
-}
-
-func (e *Event) Interface(key string, i interface{}) *Event {
-	if e == nil {
-		return e
-	}
-
-	return e.addField(key, i)
+	fmt.Fprintf(os.Stderr, "reggol: could not write event: %v\n", err)
 }

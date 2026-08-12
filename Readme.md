@@ -1,14 +1,20 @@
 # Reggol
 
-Reggol is a lightweight, zerolog‑inspired logger with a clear architecture “Logger → Transformer → Writer” and a focus on fast, pretty console output.
+Reggol is a zero-allocation logger with a clear `Logger → Encoder → Writer` architecture and a
+focus on fast, pretty console output.
 
-Based on ideas from [zerolog](https://github.com/rs/zerolog), but simpler and with a different output format. It supports Blocks, customizable transformers, and a global facade `log/`.
+Inspired by [zerolog](https://github.com/rs/zerolog), but smaller, with a different output format,
+Blocks, and a first-class `log/slog` bridge.
 
 [![Go Coverage](https://github.com/efureev/reggol/wiki/coverage.svg)](https://raw.githack.com/wiki/efureev/reggol/coverage.html)
 [![Test](https://github.com/efureev/reggol/actions/workflows/test.yml/badge.svg)](https://github.com/efureev/reggol/actions/workflows/test.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/efureev/reggol)](https://goreportcard.com/report/github.com/efureev/reggol)
 
 Languages: English | [Русский](./Readme.ru.md)
+
+> **v1 is a clean break.** It shares no API with the 0.x line and there is no migration path:
+> the core was rewritten to remove allocations, fix a data race in concurrent logging, and add
+> child loggers, contexts and structured output. Pin `v0.4.1` if you need the old API.
 
 ## Installation
 
@@ -18,25 +24,27 @@ go get github.com/efureev/reggol
 go get github.com/efureev/reggol/log
 ```
 
-Supported Go versions: 1.24+.
+Supported Go versions: 1.25+.
 
 ## Features
 
-- Minimal allocations, simple chain‑style API: `logger.Info().Str("k","v").Msg("hi")`.
-- Two transformers included:
-  - ConsoleTransformer — pretty console output with colors.
-  - TextTransformer — flat `key=value` format (great for logs/greppers).
+- **Zero allocations** on every built-in path — message, typed fields, errors, blocks, colors,
+  child loggers. Enforced in CI, not just measured.
+- Three encoders: `ConsoleEncoder` (pretty, colored), `TextEncoder` (flat `key=value`),
+  `JSONEncoder` (one object per line).
+- Child loggers with bound fields: `logger.With().Str("service", "auth").Logger()`.
+- `context.Context` support, including pluggable extractors for trace identifiers.
+- `log/slog` bridge in `slogr/`, verified against the standard library's own conformance suite.
 - Blocks — short tags in front of the message.
-- Global facade `github.com/efureev/reggol/log` — similar to the standard `log`, but leveled.
-- Global log level (can raise the minimum for all loggers).
-- Customizable formatting hooks at transformer level.
-- Field sorting option (`SortFields`) for stable output (enabled by default).
+- Concurrency-safe by construction via `SyncWriter`.
+- Typed, allocation-free formatting hooks.
+- Automatic color detection, honoring `NO_COLOR` and `FORCE_COLOR`.
 
-Intentionally smaller than zerolog: no hooks/sampling/stacktrace/context/CBOR — kept compact on purpose.
+Deliberately smaller than zerolog: no sampling, no stack traces, no CBOR.
 
 ## Quick start
 
-The global facade is ready to use: it writes to stderr in pretty console format by default.
+The global facade is ready to use: it writes pretty console output to stderr, synchronized.
 
 ```go
 package main
@@ -48,44 +56,52 @@ func main() {
 }
 ```
 
-Create your own logger:
+Build your own logger:
 
 ```go
 package main
 
 import (
+    "os"
+
     "github.com/efureev/reggol"
 )
 
 func main() {
-    // Console (colors by default; can be disabled):
-    cw := reggol.NewConsoleWriter()
-    logger := reggol.New(cw)
+    logger := reggol.New(os.Stdout)
     logger.Info().Str("user", "bob").Msg("signed in")
 
     // Flat key=value text:
-    tt := reggol.NewTextTransformer("")
-    cw2 := reggol.NewConsoleWriter(func(w *reggol.ConsoleWriter) { w.Trans = tt })
-    reggol.New(cw2).Warn().Msg("disk almost full")
+    text := reggol.New(os.Stdout, reggol.WithEncoder(reggol.NewTextEncoder()))
+    text.Warn().Msg("disk almost full")
 }
+```
+
+`New` returns a value and every method has a value receiver, so the inline form works too:
+
+```go
+reggol.New(os.Stdout, reggol.WithEncoder(reggol.NewTextEncoder())).Warn().Msg("disk almost full")
 ```
 
 ## Log levels
 
-Levels: `Trace < Debug < Info < Warn < Error < Fatal < Panic`. Default global level is `Info`.
+Levels: `Trace < Debug < Info < Warn < Error < Fatal < Panic`. Two thresholds apply, and an event
+must clear both: the logger's own minimum and the global one. The global default is `Info`, which
+is why `Debug` is invisible until you lower it.
 
 ```go
 import (
     "flag"
+
     "github.com/efureev/reggol"
     "github.com/efureev/reggol/log"
 )
 
 func main() {
-    dbg := flag.Bool("debug", false, "enable debug")
+    debug := flag.Bool("debug", false, "enable debug")
     flag.Parse()
 
-    if *dbg {
+    if *debug {
         reggol.SetGlobalLevel(reggol.DebugLevel)
     }
 
@@ -94,10 +110,10 @@ func main() {
 }
 ```
 
-Per‑logger minimum level:
+Per-logger minimum:
 
 ```go
-logger := reggol.New(reggol.NewConsoleWriter()).Level(reggol.WarnLevel)
+logger := reggol.New(os.Stdout).Level(reggol.WarnLevel)
 logger.Info().Msg("hidden")   // below warn
 logger.Error().Msg("visible") // >= warn
 ```
@@ -107,111 +123,187 @@ logger.Error().Msg("visible") // >= warn
 ```go
 log.Info().Str("user", "alice").Int("age", 30).Msg("profile updated")
 
-// Errors: Err adds an error field; exact formatting depends on transformer
-log.Error().Err(fmt.Errorf("db down")).Msg("")
+// An error never displaces the message — both are rendered.
+log.Error().Err(errors.New("db down")).Str("host", "db-1").Msg("query failed")
+// ERR query failed db down host=db-1
 
-// Arbitrary objects
-type payload struct{ A int }
-log.Info().Interface("obj", payload{A: 1}).Msg("with object")
+// An explicit key is honored.
+log.Error().AnErr("cause", err).Msg("failed")
 ```
 
-Error behavior:
-- ConsoleTransformer shows the error text without a key (and colors it).
-- TextTransformer prints `error=<text>`.
+Typed setters — `Str`, `Int`, `Int64`, `Uint64`, `Float64`, `Bool`, `Dur`, `Time`, `Bytes`,
+`IPAddr`, `Any` — store their value without boxing, which is where the zero-allocation property
+comes from. `Any` picks the most specific representation it can.
+
+Fields are sorted by key for stable output; `WithoutSort()` keeps insertion order. Repeating a key
+emits both entries rather than replacing the first, as `log/slog` does.
+
+## Child loggers
+
+Bind fields once and pay a memory copy per line instead of re-encoding them:
+
+```go
+requestLog := logger.With().
+    Str("service", "auth").
+    Int("shard", 7).
+    Logger()
+
+requestLog.Info().Str("user", "alice").Msg("token issued")
+// INF token issued service=auth shard=7 user=alice
+```
+
+Bound fields precede event fields, and sorting applies within each group rather than across them —
+a global sort would require decoding the bound prefix on every line.
+
+Configure the encoder before creating child loggers: bound fields are rendered at
+`Logger()` time, so later hook changes do not apply to them.
+
+## Contexts
+
+```go
+ctx := logger.WithContext(context.Background())
+if l, ok := reggol.FromContext(ctx); ok {
+    l.Info().Msg("found in context")
+}
+```
+
+Extractors pull values out of a context onto every event. With none installed the path is free:
+
+```go
+logger := reggol.New(os.Stdout,
+    reggol.WithContextExtractor(func(ctx context.Context, e *reggol.Event) {
+        if id, ok := ctx.Value(traceKey{}).(string); ok {
+            e.Str("trace_id", id)
+        }
+    }),
+)
+
+logger.Ctx(ctx, reggol.InfoLevel).Msg("handled")
+```
 
 ## Blocks
 
-Blocks — short markers before the message (e.g., component name, request tag):
+Blocks are short markers before the message — a component name, a request tag:
 
 ```go
 log.Info().Blocks("API", "GET /users").Msg("ok")
 
-// Custom formatting for a block value:
 block := reggol.NewBlock("auth", func(s string) string { return "[" + s + "]" })
 log.Info().Block(block).Msg("token verified")
 ```
 
-In console, blocks are printed before the message separated by spaces; in text transformer a `blocks=[...]` form is available.
+## Encoders
 
-## Transformers and formatting
+| Encoder | Output |
+|---|---|
+| `NewConsoleEncoder` | `2:09PM INF hello int=123 string=four!` |
+| `NewTextEncoder` | `ts=…, level=info, message=hello, int=123` |
+| `NewJSONEncoder` | `{"ts":"…","level":"info","message":"hello","int":123}` |
 
-Available transformers:
-- `ConsoleTransformer(noColor bool, timeFormat string)` — human‑readable format with short levels (`INF/WRN/ERR`) and colors.
-- `TextTransformer(timeFormat string)` — `key=value` format that’s easy to parse.
+Shared options: `WithTimeFormat`, `WithoutTimestamp`, `WithoutLevel`, `WithoutSort`,
+`WithKeyNames`, plus the formatting hooks `WithLevelFormatter`, `WithTimeFormatter`,
+`WithFieldFormatter`, `WithKeyFormatter`, `WithValueFormatter`, `WithMessageFormatter`,
+`WithBlocksFormatter`, `WithBeforeEncode`, `WithAfterEncode`.
 
-Shared options (via `AbstractTransformer` methods/fields):
-- `HideTimestamp()` / `HideLevel()` — hide timestamp/level.
-- `SetSortFields(false)` or `DisableSort()` — disable field sorting (faster, but order not guaranteed).
-- Formatting customization via function hooks:
-  - `FormatLevelFn`
-  - `FormatTimestampFn`
-  - `FormatFieldFn`, `FormatFieldNameFn`, `FormatFieldValueFn`
-  - `FormatMessageFn`, `FormatErrorFn`
-  - `BeforeTransformFn` / `AfterTransformFn`
-
-Disable field sorting example:
+Hooks append into a caller-owned buffer rather than returning a string, so customizing output
+costs nothing:
 
 ```go
-tr := reggol.NewConsoleTransformer(false, "")
-tr.DisableSort() // or tr.SetSortFields(false)
-logger := reggol.New(reggol.NewConsoleWriter(func(w *reggol.ConsoleWriter) { w.Trans = tr }))
+enc := reggol.NewTextEncoder(
+    reggol.WithLevelFormatter(func(dst []byte, l reggol.Level) []byte {
+        return append(dst, strings.ToUpper(l.String())...)
+    }),
+)
 ```
 
-## Writers
+Console-specific options go through `WithColorMode` and `WithConsoleOptions`:
 
-- `ConsoleWriter` — writes to an `io.Writer` (stdout by default). Appends exactly one newline.
-- `TransformWriterAdapter` — adapts any `io.Writer` with a selected transformer, also appends one newline.
-- Any `Logger` implements `io.Writer` (its `Write` formats via `Log().Msg(string(p))`).
-
-The global `log` facade is preconfigured to `ConsoleWriter` with stderr output.
-
-## Fatal and Panic behavior
-
-- `logger.Fatal().Msg(...)` — attempts to close the writer to flush, then calls `os.Exit(ExitCode)` (default 1).
-- `logger.Panic().Msg(...)` — calls `panic(msg)` after writing.
-
-## Use cases
-
-1) CLI tools and services with pretty console logs
-- use `ConsoleTransformer` (default in the global facade), blocks for short tags, colored levels
 ```go
-log.Info().Blocks("CLI").Msg("starting")
-log.Warn().Blocks("db").Msg("reconnect")
+enc := reggol.NewConsoleEncoder(
+    reggol.WithColorMode(reggol.ColorAuto, os.Stderr),
+    reggol.WithConsoleOptions(reggol.WithTimeFormat(time.RFC3339)),
+)
 ```
 
-2) Logs for parsing and metrics
-- use `TextTransformer`, no colors, clean `key=value`
+`ColorAuto` emits color only when the destination is a terminal, and respects `NO_COLOR`,
+`FORCE_COLOR` and `TERM=dumb`. `ColorAlways` and `ColorNever` force the decision.
+
+## Writers and concurrency
+
+A logger is exactly as concurrency-safe as the writer underneath it, and most writers — including
+`bytes.Buffer` and anything wrapping one — are not safe at all. Wrap them:
+
 ```go
-tr := reggol.NewTextTransformer("")
-cw := reggol.NewConsoleWriter(func(w *ConsoleWriter) { w.Trans = tr })
-logger := reggol.New(cw)
-logger.Info().Str("service", "auth").Int("status", 200).Msg("request")
+logger := reggol.New(reggol.SyncWriter(out))
 ```
 
-3) Wrapping libraries that require an `io.Writer`
+The facade in `log/` already does this. `MultiWriter` fans one event out to several destinations.
+
+Encoders terminate each record with exactly one `\n`; writers pass the bytes through untouched.
+
+## log/slog
+
+`slogr` makes reggol a backend for the standard library's structured logger. It passes
+`testing/slogtest`, the conformance suite `log/slog` ships with.
+
 ```go
-logger := reggol.New(reggol.NewConsoleWriter()).Level(reggol.DebugLevel)
-someLib.SetOutput(&logger) // Logger implements io.Writer
+import (
+    "log/slog"
+
+    "github.com/efureev/reggol"
+    "github.com/efureev/reggol/slogr"
+)
+
+logger := slogr.New(reggol.New(os.Stdout, reggol.WithEncoder(reggol.NewJSONEncoder())))
+logger.Info("handled", slog.String("user", "alice"))
 ```
 
-4) High‑throughput logging without stable field order
+`slog.Handler` attributes bound with `WithAttrs` use the same pre-encoding as `With()`. Groups are
+flattened into dotted keys, which keeps them meaningful in a `key=value` console line.
+
+For slog-compatible key names:
+
 ```go
-tr := reggol.NewConsoleTransformer(true, "")
-tr.DisableSort() // faster when there are many fields
-logger := reggol.New(reggol.NewConsoleWriter(func(w *reggol.ConsoleWriter) { w.Trans = tr }))
+reggol.NewJSONEncoder(reggol.WithKeyNames(slog.TimeKey, slog.LevelKey, slog.MessageKey))
 ```
+
+## Fatal and Panic
+
+- `logger.Fatal().Msg(…)` closes the writer to flush, then calls `os.Exit(ExitCode())`, default 1.
+  It exits **even when the level filters the event out**: suppressing a record is a logging
+  decision, suppressing termination would let a raised log level silently change control flow.
+- `logger.Panic().Msg(…)` writes, then panics with the message.
 
 ## Global settings
 
-- `reggol.SetGlobalLevel(lvl)` — set the global minimum level (e.g., `Disabled` to silence).
-- `reggol.GlobalLevel()` — get the current global level.
-- `reggol.ExitCode` — the exit code used by `Fatal()` (default 1).
+- `reggol.SetGlobalLevel(lvl)` / `reggol.GlobalLevel()` — the process-wide minimum.
+- `reggol.SetExitCode(code)` / `reggol.ExitCode()` — the code used by `Fatal`.
+- `reggol.SetErrorHandler(fn)` — called when writing an event fails; without one, failures are
+  reported on stderr.
 
-## Performance tips
+All of these are guarded by atomics and safe to change at runtime.
 
-- Disable field sorting (`DisableSort()`) if order doesn’t matter.
-- Reuse one logger per component/module instead of creating one per log line.
-- Avoid heavy formatting in `Msgf` if the message may be filtered by level; check `e.Enabled()`.
+## Performance
+
+Measured on go1.26, darwin/arm64, Apple M5 Pro, via `go test -bench=. -benchmem`:
+
+| Benchmark | ns/op | allocs/op |
+|---|---:|---:|
+| `Disabled` | ~0.4 | **0** |
+| `LogFields` (3 typed fields) | ~32–40 | **0** |
+| `Info` (message only) | ~58–66 | **0** |
+| `Child` (3 bound fields) | ~65 | **0** |
+| `stdlib slog TextHandler` (same fields) | ~227 | 3 |
+
+Wall-clock numbers move with machine load; the allocation counts do not, which is why CI gates on
+allocations and treats timings as informational.
+
+Tips:
+
+- Reuse one logger per component instead of building one per line.
+- Bind repeated fields with `With()` rather than repeating them at each call site.
+- `WithoutSort()` if key order does not matter.
+- Guard expensive `Msgf` arguments with `e.Enabled()`.
 
 ## Screenshot
 

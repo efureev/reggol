@@ -27,19 +27,20 @@ jobs:
       - uses: golangci/golangci-lint-action@v9 # Action page: <https://github.com/golangci/golangci-lint-action>
         with: { version: v2.7 }
 
+  # Correctness, including the concurrency guard. The race detector allocates on
+  # its own, so allocation gates are excluded here and run in `alloc` instead.
   test:
+    name: Test (race)
     strategy:
       matrix:
-        go-version: [1.24.x, 1.25.x]
+        go-version: [1.25.x, 1.26.x]
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Install Go
-        uses: actions/setup-go@v6
+      - uses: actions/setup-go@v6
         with:
           go-version: ${{ matrix.go-version }}
-      - name: Checkout code
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
       - uses: actions/cache@v4
         with:
           path: ~/go/pkg/mod
@@ -47,13 +48,54 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
       - name: Test
-        run: go test -race -bench=. -benchmem ./...
+        run: go test -race ./...
+
+  # The blocking performance gate. Allocation counts are deterministic where
+  # ns/op on a shared runner is not, so this is what CI enforces.
+  alloc:
+    name: Allocations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+      - uses: actions/checkout@v6
+      - name: Zero-allocation gates
+        run: go test -run 'TestZeroAllocations|TestChildLoggerZeroAllocations|TestPoolCeiling' -v ./...
+
+  # Seed corpora only; a real fuzzing campaign belongs in a scheduled job.
+  fuzz:
+    name: Fuzz (seeds)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+      - uses: actions/checkout@v6
+      - name: Fuzz seeds
+        run: go test -run 'Fuzz' ./...
+      - name: Short fuzzing campaign
+        run: |
+          for target in FuzzParseLevel FuzzJSONEncoder FuzzTextEncoder FuzzValueAppend; do
+            go test -run '^$' -fuzz="^${target}$" -fuzztime=30s .
+          done
+
+  bench:
+    name: Benchmarks (informational)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+      - uses: actions/checkout@v6
+      - name: Run benchmarks
+        run: go test -run '^$' -bench=. -benchmem -benchtime=200ms ./...
+
   coverage:
     runs-on: ubuntu-latest
     permissions:
       contents: write
       packages: write
-#      pages: write
     steps:
       - name: Update coverage report
         uses: ncruces/go-coverage-report@main

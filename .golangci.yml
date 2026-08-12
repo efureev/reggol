@@ -1,26 +1,33 @@
 version: "2"
+
 run:
   modules-download-mode: readonly
   allow-parallel-runners: true
+
 linters:
-  default: none
+  # `standard` brings errcheck, govet, ineffassign, staticcheck and unused.
+  # v0 ran with `default: none` and an explicit list that omitted staticcheck
+  # and unused, which is why dead exported symbols and ST1005 violations
+  # survived in a repository with 45 linters switched on.
+  default: standard
   enable:
     - asciicheck
     - bidichk
     - bodyclose
     - containedctx
     - contextcheck
+    - copyloopvar
     - decorder
     - dogsled
     - dupl
     - durationcheck
-    - errcheck
     - errname
     - errorlint
     - exhaustive
     - forbidigo
     - forcetypeassert
     - funlen
+    - gocheckcompilerdirectives
     - gochecknoglobals
     - gochecknoinits
     - gocognit
@@ -32,21 +39,29 @@ linters:
     - gomoddirectives
     - goprintffuncname
     - gosec
-    - govet
     - grouper
-    - ineffassign
+    - intrange
     - lll
+    - makezero
     - misspell
     - mnd
     - nakedret
     - nestif
+    - nilerr
     - nilnil
     - nlreturn
     - nolintlint
+    - perfsprint
+    - predeclared
     - prealloc
+    - reassign
+    - revive
     - unconvert
+    - usestdlibvars
+    - wastedassign
     - whitespace
     - wsl_v5
+
   settings:
     dupl:
       threshold: 100
@@ -67,10 +82,18 @@ linters:
       locale: US
     nolintlint:
       require-specific: true
+    perfsprint:
+      # The whole point of the rewrite: no fmt on the hot path.
+      strconcat: false
     prealloc:
       simple: true
       range-loops: true
       for-loops: true
+    revive:
+      rules:
+        - name: exported
+          disabled: true
+
   exclusions:
     generated: lax
     presets:
@@ -84,13 +107,29 @@ linters:
           - funlen
           - gochecknoglobals
           - gocognit
-          - scopelint
+          - gocyclo
+          - lll
+          - mnd
           - wsl_v5
         path: _test\.go
+      # The encoders are long, flat append chains by design; splitting them up
+      # to satisfy a length metric would cost the allocation-free property.
+      - linters:
+          - funlen
+          - gocognit
+          - gocyclo
+          - cyclop
+        path: encoder_.*\.go
+      - linters:
+          - funlen
+          - gocyclo
+          - gocognit
+        path: value\.go
     paths:
       - third_party$
       - builtin$
       - examples$
+
 formatters:
   enable:
     - gofmt
