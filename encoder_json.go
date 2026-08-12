@@ -64,10 +64,10 @@ func (j *JSONEncoder) AppendEvent(dst []byte, d *EventData) []byte {
 		dst = append(dst, ']')
 	}
 
-	if d.message != "" {
+	if len(d.message) > 0 {
 		dst = appendJSONSep(dst, &sep)
 		dst = appendJSONKey(dst, j.messageKey)
-		dst = appendJSONString(dst, d.message)
+		dst = appendJSONBytes(dst, d.message)
 	}
 
 	if len(d.ctx) > 0 {
@@ -191,45 +191,80 @@ func appendJSONKey(dst []byte, key string) []byte {
 const hexDigits = "0123456789abcdef"
 
 // appendJSONString appends s as a quoted JSON string.
-//
-// Escaping follows RFC 8259: the mandatory escapes, control characters as
-// \u00XX, and invalid UTF-8 replaced with U+FFFD so that the output is always a
-// valid document regardless of what was logged.
 func appendJSONString(dst []byte, s string) []byte {
+	return appendJSONText(dst, s, utf8.ValidString(s))
+}
+
+// appendJSONBytes appends b as a quoted JSON string.
+//
+// The message travels as bytes so that Msgf can format into the event's pooled
+// buffer without allocating a string.
+func appendJSONBytes(dst, b []byte) []byte {
+	return appendJSONText(dst, b, utf8.Valid(b))
+}
+
+// appendJSONText quotes and escapes text per RFC 8259.
+//
+// Validity is decided once for the whole input rather than rune by rune: when
+// the text is valid UTF-8 — which it is for essentially every log record —
+// multi-byte sequences need no inspection at all and are copied verbatim, so
+// the loop only looks for the ASCII bytes that require escaping.
+func appendJSONText[T ~string | ~[]byte](dst []byte, s T, valid bool) []byte {
+	if !valid {
+		return appendJSONSanitized(dst, string(s))
+	}
+
 	dst = append(dst, '"')
 
 	start := 0
 
+	for i := range len(s) {
+		b := s[i]
+		if b >= utf8.RuneSelf || isSafeJSONByte(b) {
+			continue
+		}
+
+		dst = append(dst, s[start:i]...)
+		dst = appendJSONEscape(dst, b)
+		start = i + 1
+	}
+
+	dst = append(dst, s[start:]...)
+
+	return append(dst, '"')
+}
+
+// appendJSONSanitized handles text that is not valid UTF-8, replacing the bad
+// bytes with U+FFFD so that the output is still a valid document.
+//
+// This path allocates, and deliberately so: invalid UTF-8 in a log record is
+// pathological, and keeping the common path free of rune decoding is worth more
+// than optimizing the broken one.
+func appendJSONSanitized(dst []byte, s string) []byte {
+	dst = append(dst, '"')
+
 	for i := 0; i < len(s); {
 		if b := s[i]; b < utf8.RuneSelf {
 			if isSafeJSONByte(b) {
-				i++
-
-				continue
+				dst = append(dst, b)
+			} else {
+				dst = appendJSONEscape(dst, b)
 			}
 
-			dst = append(dst, s[start:i]...)
-			dst = appendJSONEscape(dst, b)
 			i++
-			start = i
 
 			continue
 		}
 
 		r, size := utf8.DecodeRuneInString(s[i:])
 		if r == utf8.RuneError && size == 1 {
-			dst = append(dst, s[start:i]...)
-			dst = append(dst, `�`...)
-			i += size
-			start = i
-
-			continue
+			dst = append(dst, "\ufffd"...)
+		} else {
+			dst = append(dst, s[i:i+size]...)
 		}
 
 		i += size
 	}
-
-	dst = append(dst, s[start:]...)
 
 	return append(dst, '"')
 }

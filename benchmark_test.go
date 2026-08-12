@@ -96,6 +96,20 @@ func Benchmark10Fields(b *testing.B) {
 	})
 }
 
+// BenchmarkMsgf covers the formatted path, which allocates in any
+// fmt.Sprintf-based implementation.
+func BenchmarkMsgf(b *testing.B) {
+	logger := textLogger()
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			logger.Info().Msgf("request %s took %dms", "GET /users", 42)
+		}
+	})
+}
+
 func BenchmarkErrField(b *testing.B) {
 	logger := textLogger()
 

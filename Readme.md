@@ -307,7 +307,12 @@ Tips:
 
 ## Screenshot
 
-![Pretty Console Image](.assets%2Fconsole_screen_1.png)
+![Pretty console output](.assets/console.svg)
+
+The image is generated from the library itself — regenerate it with
+`make screenshot` whenever the console format changes.
+
+Release history: [CHANGELOG.md](./CHANGELOG.md).
 
 ## License
 

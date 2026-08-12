@@ -224,7 +224,7 @@ func TestSetLevelColor(t *testing.T) {
 	enc := NewConsoleEncoder(WithColorMode(ColorAlways, nil))
 	enc.SetLevelColor(InfoLevel, ColorFgMagenta)
 
-	got := encodeEvent(enc, func(d *EventData) { d.message = "m" })
+	got := encodeEvent(enc, func(d *EventData) { d.message = []byte("m") })
 	if !strings.Contains(got, "\x1b[") {
 		t.Fatalf("no escape sequence: %q", got)
 	}
@@ -233,7 +233,7 @@ func TestSetLevelColor(t *testing.T) {
 	plain := NewConsoleEncoder(WithColorMode(ColorNever, nil))
 	plain.SetLevelColor(InfoLevel, ColorFgMagenta)
 
-	if out := encodeEvent(plain, func(d *EventData) { d.message = "m" }); strings.Contains(out, "\x1b[") {
+	if out := encodeEvent(plain, func(d *EventData) { d.message = []byte("m") }); strings.Contains(out, "\x1b[") {
 		t.Fatalf("colorless encoder emitted color: %q", out)
 	}
 }

@@ -3,7 +3,7 @@
 SHELL = /bin/sh
 DC_RUN_ARGS = --rm --user "$(shell id -u):$(shell id -g)"
 
-.PHONY : help fmt lint test race alloc bench fuzz cover check clean shell
+.PHONY : help fmt lint test race alloc bench bench-gate fuzz cover check screenshot clean shell
 .DEFAULT_GOAL : help
 .SILENT : lint test race alloc
 
@@ -32,16 +32,22 @@ test: race alloc ## Run every test CI runs
 bench: ## Run benchmarks
 	go test -run '^$$' -bench=. -benchmem ./...
 
+bench-gate: ## Fail if any benchmark allocates (the CI gate)
+	./scripts/check-allocs.sh ./...
+
 fuzz: ## Run a short fuzzing campaign
 	for target in FuzzParseLevel FuzzJSONEncoder FuzzTextEncoder FuzzValueAppend; do \
 		go test -run '^$$' -fuzz="^$$target$$" -fuzztime=30s . || exit 1; \
 	done
 
+screenshot: ## Regenerate the console screenshot in .assets
+	go run ./scripts/gen-screenshot
+
 cover: ## Report test coverage
 	go test -covermode=atomic -coverprofile=cover.out ./...
 	go tool cover -func=cover.out | tail -1
 
-check: fmt lint test ## Full gate before committing
+check: fmt lint test bench-gate ## Full gate before committing
 
 ## Containerised targets, for machines without a local Go toolchain.
 

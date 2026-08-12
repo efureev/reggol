@@ -36,18 +36,18 @@ func TestConsoleEncoderGolden(t *testing.T) {
 	}{
 		{
 			name:  "message only",
-			build: func(d *EventData) { d.message = msgHello },
+			build: func(d *EventData) { d.message = []byte(msgHello) },
 			want:  "2026-08-12T13:45:30Z INF " + msgHello + "\n",
 		},
 		{
 			name:  "no level",
-			build: func(d *EventData) { d.level = NoLevel; d.message = "plain" },
+			build: func(d *EventData) { d.level = NoLevel; d.message = []byte("plain") },
 			want:  "2026-08-12T13:45:30Z plain\n",
 		},
 		{
 			name: "fields are sorted",
 			build: func(d *EventData) {
-				d.message = "m"
+				d.message = []byte("m")
 				d.fields = []Field{Int("z", 1), String("a", "x")}
 			},
 			want: "2026-08-12T13:45:30Z INF m a=x z=1\n",
@@ -55,7 +55,7 @@ func TestConsoleEncoderGolden(t *testing.T) {
 		{
 			name: "blocks precede message",
 			build: func(d *EventData) {
-				d.message = "ok"
+				d.message = []byte("ok")
 				d.blocks = Blocks{{Text: "API"}, {Text: "GET"}}
 			},
 			want: "2026-08-12T13:45:30Z INF API GET ok\n",
@@ -64,7 +64,7 @@ func TestConsoleEncoderGolden(t *testing.T) {
 			name: "error keeps the message",
 			build: func(d *EventData) {
 				d.level = ErrorLevel
-				d.message = "context"
+				d.message = []byte("context")
 				d.fields = []Field{Err(errors.New("boom"))}
 			},
 			want: "2026-08-12T13:45:30Z ERR context boom\n",
@@ -95,13 +95,13 @@ func TestTextEncoderGolden(t *testing.T) {
 	}{
 		{
 			name:  "message only",
-			build: func(d *EventData) { d.message = msgHello },
+			build: func(d *EventData) { d.message = []byte(msgHello) },
 			want:  "ts=2026-08-12T13:45:30Z, level=info, message=" + msgHello + "\n",
 		},
 		{
 			name: "fields",
 			build: func(d *EventData) {
-				d.message = "m"
+				d.message = []byte("m")
 				d.fields = []Field{Int("n", 7), Bool("ok", true)}
 			},
 			want: "ts=2026-08-12T13:45:30Z, level=info, message=m, n=7, ok=true\n",
@@ -109,7 +109,7 @@ func TestTextEncoderGolden(t *testing.T) {
 		{
 			name: "blocks",
 			build: func(d *EventData) {
-				d.message = "m"
+				d.message = []byte("m")
 				d.blocks = Blocks{{Text: "A"}, {Text: "B"}}
 			},
 			want: "ts=2026-08-12T13:45:30Z, level=info, blocks=[A, B], message=m\n",
@@ -118,7 +118,7 @@ func TestTextEncoderGolden(t *testing.T) {
 			name: "error is a normal field",
 			build: func(d *EventData) {
 				d.level = ErrorLevel
-				d.message = "context"
+				d.message = []byte("context")
 				d.fields = []Field{Err(errors.New("boom"))}
 			},
 			want: "ts=2026-08-12T13:45:30Z, level=error, message=context, error=boom\n",
@@ -142,13 +142,13 @@ func TestJSONEncoderGolden(t *testing.T) {
 	}{
 		{
 			name:  "message only",
-			build: func(d *EventData) { d.message = msgHello },
+			build: func(d *EventData) { d.message = []byte(msgHello) },
 			want:  `{"ts":"2026-08-12T13:45:30Z","level":"info","message":"` + msgHello + `"}` + "\n",
 		},
 		{
 			name: "typed fields",
 			build: func(d *EventData) {
-				d.message = "m"
+				d.message = []byte("m")
 				d.fields = []Field{Int("n", 7), Bool("ok", true), Float64("f", 1.5)}
 			},
 			want: `{"ts":"2026-08-12T13:45:30Z","level":"info","message":"m","f":1.5,"n":7,"ok":true}` + "\n",
@@ -228,14 +228,14 @@ func TestJSONEncoderHandlesNonFiniteFloats(t *testing.T) {
 
 func TestEncoderOptions(t *testing.T) {
 	t.Run("without timestamp", func(t *testing.T) {
-		got := encodeEvent(NewTextEncoder(WithoutTimestamp()), func(d *EventData) { d.message = "m" })
+		got := encodeEvent(NewTextEncoder(WithoutTimestamp()), func(d *EventData) { d.message = []byte("m") })
 		if strings.Contains(got, "ts=") {
 			t.Fatalf("timestamp not hidden: %q", got)
 		}
 	})
 
 	t.Run("without level", func(t *testing.T) {
-		got := encodeEvent(NewTextEncoder(WithoutLevel()), func(d *EventData) { d.message = "m" })
+		got := encodeEvent(NewTextEncoder(WithoutLevel()), func(d *EventData) { d.message = []byte("m") })
 		if strings.Contains(got, "level=") {
 			t.Fatalf("level not hidden: %q", got)
 		}
@@ -259,8 +259,11 @@ func TestFormattingHooks(t *testing.T) {
 		WithLevelFormatter(func(dst []byte, l Level) []byte {
 			return append(dst, strings.ToUpper(l.String())...)
 		}),
-		WithMessageFormatter(func(dst []byte, msg string) []byte {
-			return append(dst, "<"+msg+">"...)
+		WithMessageFormatter(func(dst, msg []byte) []byte {
+			dst = append(dst, '<')
+			dst = append(dst, msg...)
+
+			return append(dst, '>')
 		}),
 		WithKeyFormatter(func(dst []byte, key string) []byte {
 			return append(dst, "k_"+key...)
@@ -268,7 +271,7 @@ func TestFormattingHooks(t *testing.T) {
 	)
 
 	got := encodeEvent(enc, func(d *EventData) {
-		d.message = "m"
+		d.message = []byte("m")
 		d.fields = []Field{Int("n", 1)}
 	})
 
@@ -281,7 +284,7 @@ func TestFormattingHooks(t *testing.T) {
 func TestConsoleColorIsEmittedOnlyWhenAsked(t *testing.T) {
 	withColor := encodeEvent(
 		NewConsoleEncoder(WithColorMode(ColorAlways, nil)),
-		func(d *EventData) { d.message = "m" },
+		func(d *EventData) { d.message = []byte("m") },
 	)
 
 	if !strings.Contains(withColor, "\x1b[") {
@@ -290,7 +293,7 @@ func TestConsoleColorIsEmittedOnlyWhenAsked(t *testing.T) {
 
 	withoutColor := encodeEvent(
 		NewConsoleEncoder(WithColorMode(ColorNever, nil)),
-		func(d *EventData) { d.message = "m" },
+		func(d *EventData) { d.message = []byte("m") },
 	)
 
 	if strings.Contains(withoutColor, "\x1b[") {

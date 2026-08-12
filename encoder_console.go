@@ -139,7 +139,7 @@ func (c *ConsoleEncoder) AppendEvent(dst []byte, d *EventData) []byte {
 		dst = d.blocks[i].appendTo(dst)
 	}
 
-	if d.message != "" {
+	if len(d.message) > 0 {
 		dst = appendSpace(dst, &sep)
 		dst = c.appendMessage(dst, d.message)
 	}

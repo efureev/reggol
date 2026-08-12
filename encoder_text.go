@@ -43,7 +43,7 @@ func (t *TextEncoder) AppendEvent(dst []byte, d *EventData) []byte {
 		dst = t.appendBlocks(dst, d.blocks)
 	}
 
-	if d.message != "" {
+	if len(d.message) > 0 {
 		dst = appendTextSep(dst, &sep)
 		dst = append(dst, t.messageKey...)
 		dst = append(dst, '=')

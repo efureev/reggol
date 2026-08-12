@@ -178,6 +178,28 @@ func TestPanicWritesThenPanics(t *testing.T) {
 	l.Panic().Msg("the sky is falling")
 }
 
+// TestPanicCarriesFormattedMessage covers the formatted path: the message lives
+// in the event buffer rather than in a string, so the panic value has to be
+// materialized from it.
+func TestPanicCarriesFormattedMessage(t *testing.T) {
+	var buf bytes.Buffer
+
+	l := New(&buf, WithEncoder(NewTextEncoder(WithoutTimestamp())), WithLevel(TraceLevel))
+
+	defer func() {
+		r := recover()
+		if r != "shard 7 is gone" {
+			t.Fatalf("panic value = %v, want the formatted message", r)
+		}
+
+		if !strings.Contains(buf.String(), "shard 7 is gone") {
+			t.Fatalf("event was not written: %q", buf.String())
+		}
+	}()
+
+	l.Panic().Msgf("shard %d is gone", 7)
+}
+
 // TestFatalExits runs Fatal in a subprocess, the only way to observe os.Exit.
 //
 // It also pins a deliberate semantic: Fatal terminates even when the level

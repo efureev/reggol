@@ -305,7 +305,12 @@ reggol.NewJSONEncoder(reggol.WithKeyNames(slog.TimeKey, slog.LevelKey, slog.Mess
 
 ## Скриншоты
 
-![Pretty Console Image](.assets%2Fconsole_screen_1.png)
+![Вывод в консоль](.assets/console.svg)
+
+Картинка генерируется из самой библиотеки — пересобрать её после смены
+формата консоли можно командой `make screenshot`.
+
+История релизов: [CHANGELOG.md](./CHANGELOG.md).
 
 ## Лицензия
 

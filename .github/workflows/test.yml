@@ -80,16 +80,37 @@ jobs:
             go test -run '^$' -fuzz="^${target}$" -fuzztime=30s .
           done
 
+  # Blocking gate: no benchmark may allocate. Allocation counts are
+  # deterministic where ns/op on a shared runner is not.
   bench:
-    name: Benchmarks (informational)
+    name: Benchmarks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
       - uses: actions/checkout@v6
-      - name: Run benchmarks
-        run: go test -run '^$' -bench=. -benchmem -benchtime=200ms ./...
+        with: { fetch-depth: 0 }
+
+      - name: Allocation gate
+        run: ./scripts/check-allocs.sh ./...
+
+      # Informational: timings against the base branch. Never gated — GitHub
+      # runners are too noisy for a stable ns/op threshold.
+      - name: Compare with the base branch
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        run: |
+          go install golang.org/x/perf/cmd/benchstat@latest
+          go test -run '^$' -bench=. -benchmem -benchtime=200ms -count=6 . > /tmp/head.txt
+          git worktree add /tmp/base "${{ github.event.pull_request.base.sha }}"
+          (cd /tmp/base && go test -run '^$' -bench=. -benchmem -benchtime=200ms -count=6 . > /tmp/base.txt)
+          {
+            echo '## Benchmarks vs base'
+            echo '```'
+            benchstat /tmp/base.txt /tmp/head.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
   coverage:
     runs-on: ubuntu-latest

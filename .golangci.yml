@@ -125,6 +125,16 @@ linters:
           - gocyclo
           - gocognit
         path: value\.go
+      # Build-time tooling, not library code: the numbers here are SVG
+      # coordinates and sample data, and printing to stdout is the point.
+      # Correctness linters (staticcheck, errcheck, govet) still apply.
+      - linters:
+          - forbidigo
+          - gochecknoglobals
+          - intrange
+          - mnd
+          - wsl_v5
+        path: ^scripts/
     paths:
       - third_party$
       - builtin$

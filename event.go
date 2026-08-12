@@ -14,15 +14,18 @@ import (
 // never implemented.
 const (
 	maxPooledBuf    = 64 << 10 // 64 KiB
+	maxPooledMsg    = 8 << 10  // 8 KiB
 	maxPooledFields = 64
 	initialBufCap   = 256
+	initialMsgCap   = 64
 )
 
 //nolint:gochecknoglobals // sync.Pool is the canonical shape for this
 var eventPool = &sync.Pool{
 	New: func() any {
 		return &Event{
-			buf: make([]byte, 0, initialBufCap),
+			buf:  make([]byte, 0, initialBufCap),
+			data: EventData{message: make([]byte, 0, initialMsgCap)},
 		}
 	},
 }
@@ -34,7 +37,7 @@ var eventPool = &sync.Pool{
 // outside the package to implement the encoder interface at all.
 type EventData struct {
 	ts      time.Time
-	message string
+	message []byte
 	fields  []Field
 	blocks  Blocks
 	ctx     []byte
@@ -47,8 +50,17 @@ func (d *EventData) Level() Level { return d.level }
 // Time returns the event timestamp.
 func (d *EventData) Time() time.Time { return d.ts }
 
-// Message returns the event message.
-func (d *EventData) Message() string { return d.message }
+// Message returns the event message as a string.
+//
+// This allocates. Encoders and formatting hooks should use MessageBytes, which
+// is what keeps Msgf allocation-free.
+func (d *EventData) Message() string { return string(d.message) }
+
+// MessageBytes returns the event message without copying.
+//
+// The bytes belong to the pooled event and are only valid until the terminal
+// call returns; copy them if they must outlive it.
+func (d *EventData) MessageBytes() []byte { return d.message }
 
 // Fields returns the event fields in their current order.
 func (d *EventData) Fields() []Field { return d.fields }
@@ -87,7 +99,7 @@ func newEvent(w Writer, enc Encoder, lvl Level) *Event {
 
 	e.data.level = lvl
 	e.data.ts = time.Now()
-	e.data.message = ""
+	e.data.message = e.data.message[:0]
 	e.data.fields = e.data.fields[:0]
 	e.data.blocks = e.data.blocks[:0]
 	e.data.ctx = nil
@@ -96,7 +108,9 @@ func newEvent(w Writer, enc Encoder, lvl Level) *Event {
 }
 
 func putEvent(e *Event) {
-	if cap(e.buf) > maxPooledBuf || cap(e.data.fields) > maxPooledFields {
+	if cap(e.buf) > maxPooledBuf ||
+		cap(e.data.message) > maxPooledMsg ||
+		cap(e.data.fields) > maxPooledFields {
 		return
 	}
 
@@ -277,16 +291,23 @@ func (e *Event) Msg(msg string) {
 		return
 	}
 
+	e.data.message = append(e.data.message[:0], msg...)
+
 	e.write(msg)
 }
 
 // Msgf writes the event with a formatted message.
+//
+// The message is formatted straight into the event's pooled buffer, so unlike a
+// fmt.Sprintf-based implementation this costs no allocation.
 func (e *Event) Msgf(format string, v ...any) {
 	if e == nil {
 		return
 	}
 
-	e.write(fmt.Sprintf(format, v...))
+	e.data.message = fmt.Appendf(e.data.message[:0], format, v...)
+
+	e.write("")
 }
 
 // Send writes the event with an empty message.
@@ -295,14 +316,17 @@ func (e *Event) Send() {
 		return
 	}
 
+	e.data.message = e.data.message[:0]
+
 	e.write("")
 }
 
-func (e *Event) write(msg string) {
-	e.data.message = msg
-
+// write encodes and emits the event. doneMsg is passed to the completion
+// callback used by Fatal and Panic; it is empty for the formatted path, where
+// the rendered message lives in the buffer instead.
+func (e *Event) write(doneMsg string) {
 	if e.doneFn != nil {
-		defer e.doneFn(msg)
+		defer e.doneFn(e.doneMessage(doneMsg))
 	}
 
 	if e.data.level == Disabled || e.w == nil || e.enc == nil {
@@ -318,6 +342,17 @@ func (e *Event) write(msg string) {
 	}
 
 	putEvent(e)
+}
+
+// doneMessage returns the text handed to the completion callback. Panic needs
+// the rendered message, so the formatted path materializes it here — off the hot
+// path, and only when a callback is installed.
+func (e *Event) doneMessage(msg string) string {
+	if msg != "" || len(e.data.message) == 0 {
+		return msg
+	}
+
+	return string(e.data.message)
 }
 
 func reportWriteError(err error) {

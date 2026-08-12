@@ -32,7 +32,10 @@ type (
 	// ValueFormatter renders a field value.
 	ValueFormatter func(dst []byte, v Value) []byte
 	// MessageFormatter renders the message.
-	MessageFormatter func(dst []byte, msg string) []byte
+	//
+	// The message arrives as bytes owned by the pooled event: this is what lets
+	// Msgf format straight into that buffer instead of allocating a string.
+	MessageFormatter func(dst []byte, msg []byte) []byte
 	// BlocksFormatter renders the blocks.
 	BlocksFormatter func(dst []byte, b Blocks) []byte
 )
@@ -127,7 +130,7 @@ func (b *baseEncoder) appendValue(dst []byte, v Value) []byte {
 }
 
 // appendMessage renders the message, honoring a custom hook.
-func (b *baseEncoder) appendMessage(dst []byte, msg string) []byte {
+func (b *baseEncoder) appendMessage(dst, msg []byte) []byte {
 	if b.FormatMessage != nil {
 		return b.FormatMessage(dst, msg)
 	}

@@ -62,6 +62,21 @@ func TestZeroAllocations(t *testing.T) {
 			emit: func(l Logger) { l.Error().Err(errExample).Msg("m") },
 		},
 		{
+			name: "formatted message",
+			enc:  NewTextEncoder(),
+			emit: func(l Logger) { l.Info().Msgf("n=%d s=%s f=%.2f", 42, "x", 1.5) },
+		},
+		{
+			name: "formatted message, json",
+			enc:  NewJSONEncoder(),
+			emit: func(l Logger) { l.Info().Msgf("n=%d s=%q", 42, "x") },
+		},
+		{
+			name: "empty message",
+			enc:  NewTextEncoder(),
+			emit: func(l Logger) { l.Info().Str("k", "v").Send() },
+		},
+		{
 			name: "blocks",
 			enc:  NewTextEncoder(),
 			emit: func(l Logger) { l.Info().Blocks("API", "GET").Msg("m") },
