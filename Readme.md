@@ -36,6 +36,8 @@ Supported Go versions: 1.25+.
 - `context.Context` support, including pluggable extractors for trace identifiers.
 - `log/slog` bridge in `slogr/`, verified against the standard library's own conformance suite.
 - Optional call sites (`WithCaller`), still allocation-free.
+- 256-colour and 24-bit output, reduced automatically to what the terminal supports.
+- **No dependencies at all** — not even indirect ones.
 - Blocks — short tags in front of the message.
 - Concurrency-safe by construction via `SyncWriter`.
 - Typed, allocation-free formatting hooks.
@@ -257,6 +259,26 @@ enc := reggol.NewConsoleEncoder(
 
 `ColorAuto` emits color only when the destination is a terminal, and respects `NO_COLOR`,
 `FORCE_COLOR` and `TERM=dumb`. `ColorAlways` and `ColorNever` force the decision.
+
+### Extended colors
+
+Beyond the named set, a level can use the 256-colour palette or 24-bit colour:
+
+```go
+enc := reggol.NewConsoleEncoder(reggol.WithColorDepth(reggol.DepthAuto))
+enc.SetLevelStyle(reggol.ErrorLevel, reggol.Style{
+    Fg:    reggol.ColorRGB(0xff, 0x66, 0x00),
+    Attrs: reggol.ColorBold,
+})
+```
+
+`DepthAuto` reads `COLORTERM` and `TERM`, and anything the terminal cannot
+express is reduced rather than printed as escape codes: a 24-bit colour becomes
+the nearest palette entry on a 256-colour terminal and the nearest basic colour
+on a 16-colour one. `Depth16`, `Depth256` and `DepthTrueColor` force the choice.
+
+`SetLevelColor` still takes a `TextStyle` and remains the short way to use the
+named colours.
 
 ## Writers and concurrency
 

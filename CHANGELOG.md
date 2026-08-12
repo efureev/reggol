@@ -21,14 +21,38 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   program counter in `slog.Record`, so a downstream handler with `AddSource: true`
   finally reports a source, and `NewHandler` uses the counter slog captured
   instead of a position inside the bridge.
+- **256-color and 24-bit output.** `Color256`, `ColorRGB`, the `Style` type and
+  `ConsoleEncoder.SetLevelStyle` allow colors a `TextStyle` bitmask cannot hold.
+  `WithColorDepth` sets how many colors the destination supports; `DepthAuto`, the
+  default, reads `COLORTERM` and `TERM`. Anything the terminal cannot express is
+  reduced to the nearest color it can, rather than emitted as escape codes.
 
 ### Changed
 
+- **No dependencies at all.** `gh.tarampamp.am/colors` was archived by its author on
+  10 April 2026, so the part of it reggol actually used — a bitmask and one method
+  mapping it to ECMA-48 SGR codes — now lives here. `golang.org/x/sys` went with it:
+  that arrived only through the archived package's terminal detection, which reggol
+  never called. `go.mod` now requires nothing, and `go.sum` is gone.
+
+  `TextStyle` was an alias for the archived package's type and is now reggol's own.
+  Every constant keeps its name and its numeric value, and the escape sequences are
+  byte-for-byte identical: `TestColorCodesMatchReference` pins the old implementation's
+  own output, captured before the dependency was removed, and the golden files did not
+  move.
 - Every public event constructor now calls one internal funnel directly. `Err` no
   longer routes through `Error`, `WithLevel` no longer through `Fatal`/`Panic`,
   `Ctx` no longer through `WithLevel`, and `Print`/`Printf`/`Println` no longer
   through `Debug`. Behaviour is unchanged; the uniform call depth is what makes a
   single caller-skip constant correct.
+
+### Removed
+
+- `TextStyle.Wrap`, `TextStyle.Start`, `TextStyle.Reset` and `TextStyle.String`. These
+  were never reggol's own API — they were reachable only because `TextStyle` aliased the
+  archived package's type — and each consulted a package-level on/off flag that reggol
+  deliberately ignored in favour of deciding color per encoder. `Has`, `Add`, `Remove`
+  and `ColorCodes` are kept.
 
 ## [1.0.0] — 2026-08-12
 

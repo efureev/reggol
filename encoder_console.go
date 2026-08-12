@@ -24,6 +24,7 @@ type ConsoleEncoder struct {
 	baseEncoder
 
 	color       bool
+	depth       ColorDepth
 	levelStyles [levelCount]style
 	timeStyle   style
 	errorStyle  style
@@ -39,6 +40,15 @@ type ConsoleOption func(*ConsoleEncoder)
 // argument read as the opposite of its meaning.
 func WithColorMode(m ColorMode, out io.Writer) ConsoleOption {
 	return func(c *ConsoleEncoder) { c.color = resolveColor(m, out) }
+}
+
+// WithColorDepth sets how many colors the destination is assumed to support.
+//
+// Extended colors are reduced to fit: a 24-bit color becomes the nearest
+// palette entry on a 256-color terminal and the nearest basic color on a
+// 16-color one. DepthAuto, the default, reads COLORTERM and TERM.
+func WithColorDepth(d ColorDepth) ConsoleOption {
+	return func(c *ConsoleEncoder) { c.depth = d }
 }
 
 // WithConsoleOptions applies shared encoder options.
@@ -58,6 +68,7 @@ func NewConsoleEncoder(opts ...ConsoleOption) *ConsoleEncoder {
 	c := &ConsoleEncoder{
 		baseEncoder: newBaseEncoder(DefaultConsoleTimeFormat),
 		color:       resolveColor(ColorAuto, os.Stdout),
+		depth:       DepthAuto,
 	}
 
 	for _, opt := range opts {
@@ -96,6 +107,8 @@ func (c *ConsoleEncoder) buildStyles() {
 		return
 	}
 
+	c.depth = resolveDepth(c.depth)
+
 	for i := range defaultLevelColors {
 		c.levelStyles[i] = newStyle(defaultLevelColors[i])
 	}
@@ -107,9 +120,22 @@ func (c *ConsoleEncoder) buildStyles() {
 
 // SetLevelColor overrides the style of a single level.
 func (c *ConsoleEncoder) SetLevelColor(l Level, s TextStyle) {
-	if i, ok := levelIndex(l); ok && c.color {
-		c.levelStyles[i] = newStyle(s)
+	c.SetLevelStyle(l, StyleOf(s))
+}
+
+// SetLevelStyle overrides the style of a single level, allowing 256-color and
+// 24-bit values that a TextStyle bitmask cannot express.
+//
+// The style is resolved to escape sequences here, once, so the color depth must
+// already be set: pass WithColorDepth to the constructor rather than after.
+func (c *ConsoleEncoder) SetLevelStyle(l Level, s Style) {
+	i, ok := levelIndex(l)
+	if !ok || !c.color {
+		return
 	}
+
+	start, reset := s.ColorCodes(c.depth)
+	c.levelStyles[i] = style{start: start, reset: reset}
 }
 
 // AppendEvent implements Encoder.
